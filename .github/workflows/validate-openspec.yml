@@ -35,4 +35,13 @@ jobs:
           package-manager-cache: false
 
       - name: 執行 OpenSpec strict validation
-        run: npx --yes @fission-ai/openspec@1.8.0 validate --all --strict
+        run: |
+          set +e
+          npx --yes @fission-ai/openspec@1.8.0 validate automatic-private-ci-sweep --type change --strict
+          auto_rc=$?
+          echo
+          npx --yes @fission-ai/openspec@1.8.0 validate public-ci-automation-hub --type change --strict
+          phase_rc=$?
+          if (( auto_rc != 0 || phase_rc != 0 )); then
+            exit 1
+          fi
