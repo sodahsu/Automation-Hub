@@ -99,8 +99,15 @@ jobs:
 
           echo "Private target checkout completed with read-only archive access."
 
-      - name: Set up Node runtime
-        if: ${{ hashFiles('workspace/package.json') != '' }}
+      - name: Set up Node 20 runtime for repo-05
+        if: ${{ inputs.target == 'repo-05' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20.19.0'
+          package-manager-cache: false
+
+      - name: Set up Node 22 runtime
+        if: ${{ inputs.target != 'repo-05' && hashFiles('workspace/package.json') != '' }}
         uses: actions/setup-node@v7
         with:
           node-version: '22'
