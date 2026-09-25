@@ -1,0 +1,38 @@
+name: 驗證 OpenSpec
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'openspec/**'
+      - '.github/workflows/validate-openspec.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-openspec
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: OpenSpec strict validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Automation Hub
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: 設定 Node 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20.19.0'
+          package-manager-cache: false
+
+      - name: 執行 OpenSpec strict validation
+        run: npx --yes @fission-ai/openspec@1.8.0 validate --all --strict
