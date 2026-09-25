@@ -2,56 +2,59 @@
 
 ## Why
 
-Phase 1 restored read-only CI for all six private targets through the public Automation-Hub, but every run still requires a manual `workflow_dispatch`. Because the private repositories currently cannot rely on their own GitHub-hosted Actions quota, the automation layer must originate from the public hub rather than from a private-repository workflow.
-
-The safest next step is a scheduled public sweep that reuses the already-validated private CI bridge. It must not add private-repository write access, publish target identities, or duplicate the tested CI adapters.
+Phase 1 已恢復六個 private repo 的 read-only CI，但固定週期六倉全跑會造成不必要的工作。新的目標是每 5 分鐘檢查一次 private repo 是否有新的 push activity，只有實際有變更的 alias 才 dispatch 既有 CI bridge。
 
 ## What Changes
 
-1. Extend the existing Private CI Bridge workflow with a scheduled trigger.
-2. Keep manual single-target dispatch unchanged.
-3. On schedule, expand execution to aliases `repo-01` through `repo-06`.
-4. Use `fail-fast: false` so one failing target does not suppress the remaining targets.
-5. Limit scheduled parallelism to two targets at a time.
-6. Preserve the existing read-only token, secret mapping, sanitized logs, zero-artifact policy, and cleanup behavior.
-7. Add a hub-only push regression trigger for changes to the bridge workflow or shared adapter code on `main`.
-8. Keep deployment, private-repository mutation, and private-repository push-event bridge infrastructure out of this change.
+1. 新增獨立 detector workflow：`.github/workflows/detect-private-changes.yml`。
+2. Detector 每 5 分鐘執行一次：`2-57/5 * * * *`。
+3. Detector 使用既有 private read-only credential 讀取 repository metadata。
+4. Detector 比較 private repo 的 `pushed_at` 與該 alias 最近一次 CI job 的 `started_at`。
+5. 若最新 CI 已涵蓋該次 push，標記 `SKIP`。
+6. 若有較新的 push，才 dispatch `private-ci.yml` 的該 alias。
+7. 若該 alias 已有 CI 執行中，標記 `WAIT`，下一輪再判斷，避免重複排隊。
+8. Detector 對 Public Automation-Hub 自己使用 `actions: write`，只用於 workflow dispatch；private repo 權限仍維持 read-only。
+9. 保留既有手動單倉 dispatch 與 Hub workflow/adapter 變更時的六倉 regression。
+
+## Detection Model
+
+本 change 不保存 private commit SHA，也不建立 public state file。Detector 使用 repository-level `pushed_at` 作為保守變更訊號。
+
+這代表非 default branch 的 push 可能多觸發一次 default-branch CI，但此設計避免在 Public Automation-Hub 保存 private commit metadata，也不需要新的 credential 或 private-repository write access。
 
 ## Schedule
 
-The public sweep runs every three hours at minute 23 UTC:
+~~~text
+2-57/5 * * * *
+~~~
 
-```text
-23 */3 * * *
-```
-
-The non-zero minute intentionally avoids the most common top-of-hour scheduling hotspot.
+等同每 5 分鐘執行一次，並避開整點的高峰分鐘。
 
 ## Scope
 
 - Automation-Hub only.
-- Existing `.github/workflows/private-ci.yml`.
-- Six public-safe aliases only.
-- Scheduled CI sweep plus existing manual single-target execution.
-- Hub-only push regression sweep when bridge code changes on `main`.
+- 六個 public-safe aliases。
+- Private repository metadata read-only。
+- Public Automation-Hub workflow dispatch。
+- 既有 sanitized CI bridge。
 
 ## Non-Goals
 
-- No private repository workflow edits.
-- No private repository write token.
-- No private-repository webhook relay, GitHub App event bridge, or external server.
-- No production deploy migration.
-- No public alias-to-repository mapping.
-- No cache/artifact containing private source.
-- No disabling of existing private workflows.
+- 不修改 private repository workflow。
+- 不增加 private repository write token。
+- 不保存 private commit SHA。
+- 不公開 alias-to-repository mapping。
+- 不建立 webhook server 或外部 relay。
+- 不遷移 production deployment。
+- 不上傳 private source/cache/artifact。
 
 ## Acceptance
 
-- Manual dispatch still runs exactly one selected alias.
-- Scheduled dispatch runs all six aliases.
-- A failure in one scheduled alias does not cancel the remaining aliases.
-- At most two target jobs run concurrently in one scheduled sweep.
-- Existing sanitized CI adapters are reused without duplicating their implementation.
-- Token remains selected-repository and read-only.
-- No private repository name is committed or printed intentionally.
-- Existing cleanup and command-file isolation remain active.
+- Detector 每 5 分鐘可成功執行。
+- 沒有新 push 時不 dispatch CI。
+- 有新 push 時只 dispatch 對應 alias。
+- 執行中的 alias 不重複排隊。
+- Manual single-target dispatch 仍可用。
+- Hub-code regression trigger 仍可用。
+- Private credential 維持 selected-repository read-only。
+- Public log 不揭露 private repo 真名或 source。
