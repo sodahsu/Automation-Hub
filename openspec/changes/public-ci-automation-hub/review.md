@@ -90,3 +90,13 @@ This review does not authorize production deployment migration, write access to 
 - Connector-side log review found no occurrences of the known private repository names checked for this implementation pass.
 - Artifact count: 0.
 - The successful run revealed one additional boundary: private test tooling could append its own report to `GITHUB_STEP_SUMMARY`. The workflow has since been hardened so child CI receives isolated temporary command-file paths for `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH`. This hardening still requires one real-run verification before Phase 1 sign-off.
+
+## Security Hardening Verification — repo-01 run #5
+
+- Result: PASS.
+- The private target completed read-only checkout, Node setup, install, and canonical `check:ci` successfully.
+- Public Job Summary contained only the hub-generated sanitized target/stage table.
+- The prior private-generated Vitest Test Report did not appear.
+- Connector-side log review found no known private repository name hits.
+- Artifact count remained 0.
+- `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH` isolation is therefore verified for the pilot path.
