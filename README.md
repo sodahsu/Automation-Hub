@@ -113,11 +113,12 @@ No private source artifact is uploaded.
 
 ## OpenSpec
 
-Current change:
+Current changes:
 
-openspec/changes/public-ci-automation-hub/
+- `openspec/changes/public-ci-automation-hub/` — Phase 1 read-only CI recovery and six-target rollout.
+- `openspec/changes/automatic-private-ci-sweep/` — automatic three-hour sweep and hub-code regression trigger.
 
-Implementation follows that change's security and migration gates.
+Implementation follows both changes' security, migration, and validation gates.
 
 ## Actions command-file isolation
 
