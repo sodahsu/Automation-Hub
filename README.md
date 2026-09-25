@@ -118,3 +118,7 @@ Current change:
 openspec/changes/public-ci-automation-hub/
 
 Implementation follows that change's security and migration gates.
+
+## Actions command-file isolation
+
+Private-repository CI executes with temporary replacements for `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH`. This prevents target tooling from directly injecting summaries, outputs, environment mutations, or PATH mutations into the public orchestration job. The temporary command files are deleted during the always-run cleanup step; only the hub-generated sanitized summary is published.
