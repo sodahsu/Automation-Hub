@@ -2,7 +2,7 @@
 
 Public, read-only CI orchestration for private repositories.
 
-The hub exists to run validation on standard public GitHub-hosted runners while target source repositories remain private. The initial implementation is deliberately narrow: manual dispatch, read-only checkout, repository-native CI, sanitized public output, and no production deployment.
+The hub exists to run validation on standard public GitHub-hosted runners while target source repositories remain private. It supports manual single-target runs, an automatic six-target sweep every three hours, and a six-target regression sweep when the hub's own workflow/adapter code changes on `main`. All target access remains read-only, public output is sanitized, and production deployment is out of scope.
 
 ## Architecture
 
@@ -134,3 +134,18 @@ Most Node targets use the repository's existing `check:ci` when available. `repo
 ## repo-06 Vault Health adapter
 
 `repo-06` is a large content repository. The hub uses a sparse read-only Git checkout matching its Vault Health scope rather than downloading the full repository archive. The checkout retains local Git metadata for read-only health inventory logic but removes every remote before CI begins. The adapter runs only structural/read-only Vault Health gates and suppresses all target-generated report bodies from public logs. Schedule-only reports and AI generation/retry workflows are intentionally excluded.
+
+
+## Automatic CI sweep
+
+The same validated bridge runs automatically every three hours:
+
+~~~text
+23 */3 * * *
+~~~
+
+Scheduled runs expand to `repo-01` through `repo-06`, use `fail-fast: false`, and run at most two target jobs concurrently.
+
+This is polling, not a private-repository push webhook. A private commit may therefore wait up to roughly three hours for the next sweep. Manual `workflow_dispatch` remains available when an immediate check is needed.
+
+When the hub's own `.github/workflows/private-ci.yml` or `scripts/common/**` changes on `main`, a six-target regression sweep runs automatically. This validates the orchestration code itself without adding any private-repository write permission.
