@@ -22,6 +22,25 @@ source: ai-assisted
 - A manual `workflow_dispatch` path is sufficient for emergency recovery and avoids requiring a private-repository Action to trigger the public hub.
 - Automatic per-push triggering is not solved by this Phase 1 design and is intentionally deferred.
 
+## Implementation Checkpoint — 2026-09-25
+
+Implemented on `main`:
+
+- `.gitignore` blocks private checkout, environment, log, and report paths.
+- `SECURITY.md` defines the public/private security boundary and incident response.
+- `README.md` documents the two required Secrets and manual-run flow without revealing target identities.
+- `.github/workflows/private-ci.yml` provides manual alias selection, read-only permissions, secret preflight, masked runtime target resolution, shallow private clone, origin redaction, Node runtime setup, sanitized CI execution, summary output, timeout, concurrency, and always-run cleanup.
+- `scripts/common/run-ci.sh` detects supported Node package managers and runs existing install/lint/typecheck/test/build stages while suppressing private command output from public logs.
+- Public repository search found no occurrences of the known private target repository names checked during this implementation pass.
+- Official GitHub Actions are pinned to current major lines used by this implementation (`actions/checkout@v7`, `actions/setup-node@v7`); automatic package-manager caching is explicitly disabled.
+
+Not yet executed:
+
+- The required GitHub Actions Secrets have not been added by the user.
+- No real private checkout has run from the public runner.
+- No successful/failing real CI logs have been reviewed for leakage.
+- No non-Node target adapter beyond safe SKIP behavior has been approved.
+
 ## Readiness Sign-off
 
 - [x] Problem and recovery objective are defined.
@@ -32,6 +51,7 @@ source: ai-assisted
 - [x] Private-repository mutation is excluded.
 - [x] Existing private workflows are preserved.
 - [x] Rollback requires no private source change.
+- [x] Public workflow and sanitized CI adapter are implemented.
 - [ ] Required GitHub Secrets have not yet been added.
 - [ ] No public-runner clone has yet been executed.
 - [ ] No log-leakage validation has yet been executed.
@@ -55,8 +75,8 @@ Before declaring implementation ready for six-target use, independently verify:
 
 ## Conclusion
 
-This change is **approved as a pre-implementation specification for an emergency read-only CI recovery path**.
+This change is now **implementation-ready but runtime-blocked on manual Secret configuration**.
 
-It does not authorize production deployment migration, write access to any private repository, public disclosure of target identities, or deletion/disablement of existing private workflows.
+The repository-side Phase 1 skeleton is in place. The next authorized operation is to add the two GitHub Actions Secrets, map one pilot alias, manually dispatch the workflow, and review both success and failure behavior before expanding to all six targets.
 
-Implementation should proceed from Tasks 1–7, validate one alias end-to-end, then expand to the remaining aliases.
+This review does not authorize production deployment migration, write access to any private repository, public disclosure of target identities, or deletion/disablement of existing private workflows.
