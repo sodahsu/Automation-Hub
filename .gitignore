@@ -1,0 +1,22 @@
+# Private checkouts / transient workspaces
+workspace/
+repos/
+tmp/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+secrets.*
+*.pem
+*.key
+
+# Logs / reports
+*.log
+coverage/
+reports/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
