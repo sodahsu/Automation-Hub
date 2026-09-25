@@ -324,3 +324,31 @@ Detector run #1：
 Phase 1 已完成其核心目的：在不公開 private source、不增加 target write access、不改 repository visibility 的前提下，恢復六倉 CI。
 
 目前架構可持續使用，且已具備每 5 分鐘 change-aware polling；剩餘工作屬於持續觀察與獨立 security review，而不是 Phase 1 功能缺口。
+
+
+## OpenSpec strict validation
+
+已新增 Public-only validation workflow：`.github/workflows/validate-openspec.yml`。
+
+初次 strict validation 不是直接被略過，而是真正抓出兩類結構問題：
+
+1. automatic change 缺少 spec delta；
+2. 繁中 Phase 1 spec 缺少 parser 要求的 RFC 2119 `MUST` / `SHALL` 關鍵字。
+
+完成修正後，`@fission-ai/openspec@1.8.0 validate --all --strict` 已 PASS。
+
+## 自動 Security Review Gate
+
+已新增不讀取任何 private Secret 的 Public-only security audit：
+
+- 禁止 `pull_request_target`；
+- 禁止 `actions/upload-artifact`；
+- 禁止 `actions/cache`；
+- 禁止 `persist-credentials: true`；
+- private CI 必須維持 `contents: read`；
+- `actions: write` 只允許 detector workflow；
+- private workspace / command-file sink / askpass 必須 cleanup；
+- workflow / script 禁止 `set -x`；
+- 掃描常見 token prefix。
+
+Detector workflow 修正後再次執行 audit，結果 PASS。
