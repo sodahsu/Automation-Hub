@@ -9,7 +9,7 @@ Phase 1 已恢復六個 private repo 的 read-only CI，但固定週期六倉全
 ## 變更內容
 
 1. 新增獨立 detector workflow：`.github/workflows/detect-private-changes.yml`。
-2. Detector 每 5 分鐘執行一次：`2-57/5 * * * *`。
+2. Detector 每 5 分鐘執行一次：`*/5 * * * *`。
 3. Detector 使用既有 private read-only credential 讀取 repository metadata。
 4. Detector 比較 private repo 的 `pushed_at` 與該 alias 最近一次 CI job 的 `started_at`。
 5. 若最新 CI 已涵蓋該次 push，標記 `SKIP`。
@@ -29,10 +29,10 @@ Detector 使用 repository-level `pushed_at` 作為保守變更訊號。
 ## 排程
 
 ~~~text
-2-57/5 * * * *
+*/5 * * * *
 ~~~
 
-等同每 5 分鐘執行一次，並避開整點的常見排程高峰。
+等同每 5 分鐘執行一次，採用標準 GitHub Actions cron 寫法。
 
 ## 範圍
 
