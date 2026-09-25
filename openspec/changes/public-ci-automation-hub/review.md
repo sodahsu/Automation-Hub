@@ -52,7 +52,7 @@ source: ai-assisted
 - [x] 六倉 alias 均完成實跑。
 - [x] Automatic triggering 已在獨立 `automatic-private-ci-sweep` change 實作。
 
-## Security Review Gate
+## 安全審查 Gate
 
 在宣布六倉可用前，需確認：
 
@@ -107,7 +107,7 @@ source: ai-assisted
 - Log 無 known private repository name hit。
 - Artifact count：0。
 
-## Coverage Review — repo-04
+## Coverage 審查 — repo-04
 
 Generic bridge 首次雖然 PASS，但與原 private CI 比較後發現 package-level `check:ci` coverage 不足。
 
@@ -171,9 +171,9 @@ Public bridge adapter 已改成相同 semantics。
 
 安全結果：
 
-- known private repository name hits：0
+- 已知 private repository 名稱命中：0
 - Artifact count：0
-- private-generated Job Summary：0
+- private 產生的 Job Summary：0
 
 repo-04 已足夠覆蓋 Phase 1 CI recovery。
 
@@ -184,8 +184,8 @@ repo-05 的主要 CI 是 contract-oriented，而不是 package-oriented。
 Public bridge 鏡像其 read-only workflow：
 
 - Python unit tests
-- candidate contract validation
-- architecture JSON / doc validation
+- candidate contract 驗證
+- architecture JSON / 文件驗證
 - `@fission-ai/openspec@1.8.0 validate --all --strict`
 
 此 alias 使用 Node 20.19.0，與原 private CI 對齊。
@@ -218,7 +218,7 @@ repo-06 是大型 content repository，主要 validation path 為 read-only Vaul
 
 Bridge 採用：
 
-- token-scoped sparse Git checkout
+- token-scope 限制的 sparse Git checkout
 - 只 checkout health-check 所需範圍
 - checkout 後移除所有 remotes
 - 保留 local Git metadata，僅供 `git ls-files` 類 read-only health inventory 使用
@@ -226,18 +226,18 @@ Bridge 採用：
 
 Adapter 鏡像：
 
-- pinned PyYAML install
+- 固定版本 PyYAML 安裝
 - health unit tests
 - managed skill sync
-- metadata normalizer
+- metadata normalizer 檢查
 - vault health
 - follow-up radar
-- stale-fact audit（advisory）
+- stale-fact audit（建議性檢查）
 - Hub drift
 - index drift
-- relation graph structural validation
-- canonical memory health
-- source-link dry-run validation
+- relation graph 結構驗證
+- canonical memory 健康檢查
+- source-link dry-run 驗證
 
 Schedule-only claim-harvest / backlog report 標記 `SKIP`；write-oriented Claude / Gemini / retry workflow 不納入 Hub。
 
@@ -247,7 +247,7 @@ Schedule-only claim-harvest / backlog report 標記 `SKIP`；write-oriented Clau
 
 所有 read-only stages 都通過：
 
-- Python dependency setup
+- Python dependency 設定
 - health unit tests
 - skill sync
 - metadata normalizer
@@ -306,11 +306,11 @@ Private repo 仍維持 read-only，不新增 private write token。
 
 另外，Hub 自己的 workflow / shared adapter code 在 `main` 變更時，會自動執行六倉 regression。
 
-Automatic regression run #17：
+自動 regression run #17：
 
 - 六個 aliases 全部 PASS。
-- known private-name hits：0。
-- private report markers：0。
+- 已知 private repository 名稱命中：0。
+- private report 內容標記命中：0。
 - Artifact count：0。
 
 Detector run #1：
