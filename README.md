@@ -137,16 +137,26 @@ Most Node targets use the repository's existing `check:ci` when available. `repo
 `repo-06` is a large content repository. The hub uses a sparse read-only Git checkout matching its Vault Health scope rather than downloading the full repository archive. The checkout retains local Git metadata for read-only health inventory logic but removes every remote before CI begins. The adapter runs only structural/read-only Vault Health gates and suppresses all target-generated report bodies from public logs. Schedule-only reports and AI generation/retry workflows are intentionally excluded.
 
 
-## Automatic CI sweep
+## 自動偵測 private repo 變更
 
-The same validated bridge runs automatically every three hours:
+Automation-Hub 每 5 分鐘執行一次唯讀偵測：
 
 ~~~text
-23 */3 * * *
+2-57/5 * * * *
 ~~~
 
-Scheduled runs expand to `repo-01` through `repo-06`, use `fail-fast: false`, and run at most two target jobs concurrently.
+偵測器不會固定重跑六倉。它會：
 
-This is polling, not a private-repository push webhook. A private commit may therefore wait up to roughly three hours for the next sweep. Manual `workflow_dispatch` remains available when an immediate check is needed.
+1. 以 alias 讀取六個 private repo 的最新 push 時間。
+2. 查詢該 alias 最近一次 Public CI job 的開始時間。
+3. 如果最近 CI 已在最新 push 之後開始，標記為 `SKIP`。
+4. 如果有更新的 push，才透過 Public Automation-Hub 自己的 `workflow_dispatch` 執行該 alias。
+5. 如果該 alias 已有 CI 執行中，先 `WAIT`，下一輪 5 分鐘再判斷，避免重複排隊。
 
-When the hub's own `.github/workflows/private-ci.yml` or `scripts/common/**` changes on `main`, a six-target regression sweep runs automatically. This validates the orchestration code itself without adding any private-repository write permission.
+偵測器不保存 private commit SHA，也不新增 private repo write 權限。它沿用既有 read-only private credential；只有 Public Automation-Hub 自己的 detector job 具有 `actions: write`，用途僅限觸發既有 CI workflow。
+
+這個偵測採用 repository push activity 作為保守訊號，因此其他 branch 的 push 可能造成一次額外 CI，但不會因此公開 private repo 名稱或原始碼。
+
+手動 `workflow_dispatch` 仍保留，若需要立即檢查可直接執行單一 alias。
+
+當 Hub 自己的 `.github/workflows/private-ci.yml` 或 `scripts/common/**` 在 `main` 變更時，仍會自動跑一次六倉 regression，用來驗證 orchestration code 本身。
