@@ -2,7 +2,7 @@
 
 ### Requirement: Public Hub 執行 CI，同時 target repositories 維持 Private
 
-系統必須從 Public `Automation-Hub` 執行 Phase 1 CI，同時六個 target repositories 必須維持 Private。
+系統 **MUST** 從 Public `Automation-Hub` 執行 Phase 1 CI，同時六個 target repositories **MUST** 維持 Private。
 
 #### Scenario: 手動要求執行某個 private target 的 CI
 
@@ -13,9 +13,9 @@
 
 ### Requirement: Private target identity 只能在 runtime 解析
 
-已 commit 的 Hub 檔案必須只使用 public-safe alias：`repo-01`～`repo-06`。
+已 commit 的 Hub 檔案 **MUST** 只使用 public-safe alias：`repo-01`～`repo-06`。
 
-Alias-to-private-repository mapping 必須在 runtime 由 GitHub Secret 提供，且不得 commit。
+Alias-to-private-repository mapping **MUST** 在 runtime 由 GitHub Secret 提供，且 **MUST NOT** commit。
 
 #### Scenario: 解析 repository mapping
 
@@ -31,7 +31,7 @@ Alias-to-private-repository mapping 必須在 runtime 由 GitHub Secret 提供�
 
 ### Requirement: Phase 1 private access 必須採 least-privilege read-only
 
-Hub 必須使用 fine-grained token 存取 selected private repositories，且 repository permission 只限 checkout / CI 所需的 read access。
+Hub **MUST** 使用 fine-grained token 存取 selected private repositories，且 repository permission **MUST** 只限 checkout / CI 所需的 read access。
 
 #### Scenario: 準備 target checkout
 
@@ -47,7 +47,7 @@ Hub 必須使用 fine-grained token 存取 selected private repositories，且 r
 
 ### Requirement: CI 使用 repository-native checks，且不得修改 source
 
-Hub 只能執行 target repository 既有 runtime / configuration 所支援的 checks，不得修改 application source，也不得發明缺少的 project script。
+Hub **MUST** 只執行 target repository 既有 runtime / configuration 所支援的 checks，**MUST NOT** 修改 application source，也 **MUST NOT** 發明缺少的 project script。
 
 #### Scenario: 存在標準 Node CI scripts
 
@@ -68,7 +68,7 @@ Hub 只能執行 target repository 既有 runtime / configuration 所支援的 c
 
 ### Requirement: Public logs 不得暴露 private source 或 Secret
 
-Hub 必須把 workflow log 視為公開輸出，並將內容縮減為 sanitized status information。
+Hub **MUST** 把 workflow log 視為公開輸出，並 **MUST** 將內容縮減為 sanitized status information。
 
 #### Scenario: CI 成功
 
@@ -84,7 +84,7 @@ Hub 必須把 workflow log 視為公開輸出，並將內容縮減為 sanitized 
 
 ### Requirement: Private checkout 必須是 ephemeral，且不可匯出
 
-Private repository checkout 只能存在於目前 job 的 ephemeral runner workspace。
+Private repository checkout **MUST** 只存在於目前 job 的 ephemeral runner workspace。
 
 #### Scenario: Job 完成或失敗
 
@@ -99,7 +99,7 @@ Private repository checkout 只能存在於目前 job 的 ephemeral runner works
 
 ### Requirement: Source checkout 不得 cache
 
-Hub 不得 cache private source directory 或整個 private workspace。
+Hub **MUST NOT** cache private source directory 或整個 private workspace。
 
 #### Scenario: 未來新增 dependency cache
 
@@ -109,7 +109,7 @@ Hub 不得 cache private source directory 或整個 private workspace。
 
 ### Requirement: CI jobs 必須有界且彼此隔離
 
-每個 target execution 必須有明確 runtime bound 與 concurrency 行為。
+每個 target execution **MUST** 有明確 runtime bound 與 concurrency 行為。
 
 #### Scenario: 同一 alias 有重複 run
 
@@ -125,7 +125,7 @@ Hub 不得 cache private source directory 或整個 private workspace。
 
 ### Requirement: Production mutation 必須維持在 recovery path 之外
 
-Phase 1 Hub 只能恢復 validation，不得執行 production deployment 或其他 production mutation。
+Phase 1 Hub **MUST** 只恢復 validation，**MUST NOT** 執行 production deployment 或其他 production mutation。
 
 #### Scenario: Target repository 已有 deploy workflow
 
@@ -135,7 +135,7 @@ Phase 1 Hub 只能恢復 validation，不得執行 production deployment 或其�
 
 ### Requirement: 既有 private workflows 必須保留作為 rollback reference
 
-Recovery implementation 必須與既有 private-repository workflow definitions 共存。
+Recovery implementation **MUST** 與既有 private-repository workflow definitions 共存。
 
 #### Scenario: Hub recovery 不再適用
 
