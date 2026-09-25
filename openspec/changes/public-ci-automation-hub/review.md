@@ -36,9 +36,9 @@ Implemented on `main`:
 
 Not yet executed:
 
-- The required GitHub Actions Secrets have not been added by the user.
-- No real private checkout has run from the public runner.
-- No successful/failing real CI logs have been reviewed for leakage.
+- GitHub Actions Secrets are configured and working with selected-repository read-only access.
+- repo-01 and repo-02 have completed real private read-only checkouts from the public runner.
+- Successful and failed runs have been reviewed for leakage; current sanitized-path checks show no known private repository name hits and zero artifacts.
 - No non-Node target adapter beyond safe SKIP behavior has been approved.
 
 ## Readiness Sign-off
@@ -52,10 +52,10 @@ Not yet executed:
 - [x] Existing private workflows are preserved.
 - [x] Rollback requires no private source change.
 - [x] Public workflow and sanitized CI adapter are implemented.
-- [ ] Required GitHub Secrets have not yet been added.
-- [ ] No public-runner clone has yet been executed.
-- [ ] No log-leakage validation has yet been executed.
-- [ ] No target CI adapter has yet passed end-to-end.
+- [x] Required GitHub Secrets are configured.
+- [x] Public-runner read-only checkout has been executed successfully.
+- [x] Log-leakage validation has been executed on failed and successful runs.
+- [x] Node/npm canonical `check:ci` adapter has passed end-to-end.
 - [ ] Automatic triggering has not been designed and is not authorized by this change.
 
 ## Security Review Gate
@@ -75,9 +75,9 @@ Before declaring implementation ready for six-target use, independently verify:
 
 ## Conclusion
 
-This change is now **implementation-ready but runtime-blocked on manual Secret configuration**.
+This change is now **operational for the validated Node/npm targets and continuing through staged six-target rollout**.
 
-The repository-side Phase 1 skeleton is in place. The next authorized operation is to add the two GitHub Actions Secrets, map one pilot alias, manually dispatch the workflow, and review both success and failure behavior before expanding to all six targets.
+The repository-side Phase 1 implementation is active. repo-01 and repo-02 have passed end-to-end with read-only archive checkout, sanitized CI execution, command-file isolation, and zero artifacts. Remaining aliases should be validated one at a time before Phase 1 sign-off.
 
 This review does not authorize production deployment migration, write access to any private repository, public disclosure of target identities, or deletion/disablement of existing private workflows.
 
@@ -100,3 +100,13 @@ This review does not authorize production deployment migration, write access to 
 - Connector-side log review found no known private repository name hits.
 - Artifact count remained 0.
 - `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH` isolation is therefore verified for the pilot path.
+
+## Rollout Evidence — repo-02 run #6
+
+- Result: PASS.
+- Read-only archive checkout completed successfully.
+- Node 22 / npm install completed successfully.
+- Canonical `check:ci` completed successfully.
+- Public Job Summary contained only the hub-generated sanitized target/stage table.
+- Connector-side log review found no known private repository name hits.
+- Artifact count: 0.
