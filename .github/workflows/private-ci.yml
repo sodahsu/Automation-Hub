@@ -1,0 +1,128 @@
+name: Private CI Bridge (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Public-safe target alias
+        required: true
+        type: choice
+        options:
+          - repo-01
+          - repo-02
+          - repo-03
+          - repo-04
+          - repo-05
+          - repo-06
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-ci-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI — ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Automation Hub
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preflight required secrets
+        env:
+          PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          PRIVATE_REPOS_READ_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ -z "${PRIVATE_REPOS_JSON}" ]]; then
+            echo "::error title=Missing secret::PRIVATE_REPOS_JSON is not configured."
+            exit 1
+          fi
+
+          if [[ -z "${PRIVATE_REPOS_READ_TOKEN}" ]]; then
+            echo "::error title=Missing secret::PRIVATE_REPOS_READ_TOKEN is not configured."
+            exit 1
+          fi
+
+          if ! jq -e 'type == "object"' >/dev/null <<<"${PRIVATE_REPOS_JSON}"; then
+            echo "::error title=Invalid secret::PRIVATE_REPOS_JSON must be a JSON object."
+            exit 1
+          fi
+
+      - name: Resolve and clone private target
+        env:
+          TARGET_ALIAS: ${{ inputs.target }}
+          PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          GH_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
+
+          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
+            exit 1
+          fi
+
+          echo "::add-mask::${private_repo}"
+
+          rm -rf workspace
+          gh repo clone "${private_repo}" workspace -- --depth 1 --no-tags
+
+          git -C workspace remote set-url origin "https://github.com/REDACTED/REDACTED.git"
+          git -C workspace config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+
+          echo "Private target checkout completed."
+
+      - name: Set up Node runtime
+        if: ${{ hashFiles('workspace/package.json') != '' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          package-manager-cache: false
+
+      - name: Run sanitized repository-native CI
+        id: private_ci
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md"
+
+      - name: Publish sanitized summary
+        if: ${{ always() }}
+        run: |
+          set -Eeuo pipefail
+
+          {
+            echo "## Target"
+            echo
+            echo "${{ inputs.target }}"
+            echo
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -f "${RUNNER_TEMP}/ci-summary.md" ]]; then
+            cat "${RUNNER_TEMP}/ci-summary.md" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "CI summary was not produced." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Cleanup private workspace
+        if: ${{ always() }}
+        run: |
+          set -Eeuo pipefail
+          rm -rf workspace
+          rm -f "${RUNNER_TEMP}"/automation-hub-*.log "${RUNNER_TEMP}/ci-summary.md" 2>/dev/null || true
+
+      - name: Fail workflow when private CI failed
+        if: ${{ steps.private_ci.outcome == 'failure' }}
+        run: |
+          echo "::error title=Private CI failed::One or more repository-native CI stages failed."
+          exit 1
