@@ -3,7 +3,7 @@
 ## 1. 每 5 分鐘 detector
 
 - [x] 建立 `.github/workflows/detect-private-changes.yml`。
-- [x] 設定 cron：`2-57/5 * * * *`。
+- [x] 設定 cron：`*/5 * * * *`。
 - [x] 保留 detector 的 manual dispatch。
 - [x] 加入 detector-file push trigger，供 detector 自身 regression 使用。
 
