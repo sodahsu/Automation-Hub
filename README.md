@@ -90,10 +90,8 @@ Package manager detection:
 The workflow runs only scripts that already exist in the target:
 
 1. dependency install
-2. lint
-3. typecheck
-4. test
-5. build
+2. `check:ci` when the repository already defines it
+3. otherwise fall back to `lint` / `typecheck` / `test` / `build` when present
 
 Missing optional scripts are reported as SKIP.
 
