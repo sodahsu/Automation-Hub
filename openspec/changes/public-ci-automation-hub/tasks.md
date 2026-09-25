@@ -61,17 +61,17 @@
 - [x] 6.3 Disable source/workspace artifact upload.
 - [x] 6.4 Do not cache `workspace/` or private source.
 - [x] 6.5 Emit only sanitized stage status and safe aggregate metrics.
-- [ ] 6.6 Review a failed real run as well as a successful real run for leakage.
+- [x] 6.6 Review failed runs #1–#3 and successful repo-01 run #4 for leakage; no known private repository names were found in the fetched job log and artifact count was zero.
 
 ## 7. One-Target Pilot
 
 - [ ] 7.1 User manually adds `PRIVATE_REPOS_READ_TOKEN`.
 - [ ] 7.2 User manually adds `PRIVATE_REPOS_JSON` with only one pilot alias initially.
-- [ ] 7.3 Run public-runner preflight and private clone for the pilot alias.
-- [ ] 7.4 Verify no target source/name/token leakage beyond approved masked metadata.
+- [x] 7.3 Run public-runner preflight and read-only private archive checkout for the pilot alias.
+- [x] 7.4 Verify successful repo-01 run log contains no known private repository name and no source artifact; token and runtime target identifier remained masked.
 - [x] 7.5 Repository-native sanitized CI adapter is implemented and ready for pilot execution.
-- [ ] 7.6 Record PASS/FAIL/SKIP evidence from the pilot.
-- [ ] 7.7 Confirm target repository has no new commits/tags/branches from the run.
+- [x] 7.6 Record repo-01 evidence: package-json PASS, npm PASS, install PASS, canonical check:ci PASS; 15 test files / 135 tests passed.
+- [x] 7.7 Phase 1 checkout is an archive without `.git`; the CI step receives no private-repository token, so the run has no repository write path.
 
 ## 8. Six-Target Rollout
 
@@ -99,8 +99,8 @@
 
 - [ ] 11.1 Independent security review of real-run logs, masking, artifacts, permissions, and cleanup.
 - [x] 11.2 Verify committed repository content contains no known private target identifier or secret value.
-- [ ] 11.3 Verify public-runner CI works while private-repository hosted Actions quota remains unavailable.
-- [ ] 11.4 Mark Phase 1 complete only after at least one real target passes end-to-end.
+- [x] 11.3 Verify repo-01 public-runner CI works end-to-end while private-repository hosted Actions quota remains unavailable.
+- [ ] 11.4 At least one real target now passes end-to-end; keep Phase 1 open until the command-file isolation hardening is re-run successfully and additional target adapters are validated.
 
 ## Implementation checkpoint — 2026-09-25
 
@@ -113,3 +113,10 @@ Implemented on `main`:
 - `scripts/common/run-ci.sh`
 
 Current hard blocker is runtime configuration, not repository code: `PRIVATE_REPOS_READ_TOKEN` and `PRIVATE_REPOS_JSON` must be added manually in GitHub Actions Secrets before the first real private-repository run.
+
+## Security hardening checkpoint — after repo-01 run #4
+
+- [x] Detect that private test tooling can write to the public `GITHUB_STEP_SUMMARY` even when stdout/stderr are suppressed.
+- [x] Isolate `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH` to temporary sink files during untrusted private-repository CI execution.
+- [x] Remove the private command-file sink directory during `always()` cleanup.
+- [ ] Re-run a real target and confirm private tooling no longer injects its own Job Summary content.
