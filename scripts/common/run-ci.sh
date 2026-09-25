@@ -121,6 +121,16 @@ case "$pm" in
     ;;
 esac
 
+# Prefer an existing canonical aggregate CI command when available.
+if has_script "check:ci"; then
+  run_stage "check:ci" "${runner[@]}" "check:ci" || {
+    write_summary
+    exit "$overall_rc"
+  }
+  write_summary
+  exit "$overall_rc"
+fi
+
 for stage in lint typecheck test build; do
   if has_script "$stage"; then
     run_stage "$stage" "${runner[@]}" "$stage" || {
