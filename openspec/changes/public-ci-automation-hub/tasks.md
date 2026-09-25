@@ -146,3 +146,9 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Compare against the target's original private CI and identify coverage gap: package-level `check:ci` alone does not represent ShellCheck, governance, architecture, skill routing/audit, and spec-governance gates.
 - [x] Add a dedicated public-safe `repo-04` adapter that mirrors the read-only validation gates without deployment, PR classification, or artifact upload.
 - [ ] Re-run repo-04 using the dedicated adapter and resolve any runner/tooling compatibility gaps.
+
+## Runner correctness fix — after repo-04 dedicated-adapter run
+
+- [x] Detect `run_stage()` exit-code propagation bug where a failing command could be reported as `FAIL (exit 0)` and the overall job could remain green.
+- [x] Fix `run_stage()` to capture the command exit code inside the `else` branch and propagate the real non-zero status.
+- [ ] Re-run repo-04 to determine the true ShellCheck result under the corrected failure semantics.
