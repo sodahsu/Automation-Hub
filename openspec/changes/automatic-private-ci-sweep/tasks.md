@@ -82,6 +82,6 @@
 - [x] 確認目前 Vercel plan 不接受每 5 分鐘 Cron；加入 `*/5` 後 deployment failure，已完整還原。
 - [x] 建立 `docs/external-scheduler.md`，定義 external HTTP scheduler fallback。
 - [x] External scheduler 僅 dispatch Public detector，不取得 private repo mapping / read token。
-- [ ] 建立專用 fine-grained token：只允許 `sodahsu/Automation-Hub` 的 Actions Read and write。（dispatch 已正常運作，表示 token 已存在；權限範圍無法從 run 端驗證，待使用者在 GitHub token 設定頁確認後勾選。）
+- [x] 建立專用 fine-grained token「Automation-Hub external scheduler」：2026-09-25 於 GitHub 設定頁確認 Repository access 僅 `sodahsu/Automation-Hub`，Repository permissions 僅 Actions Read and write + Metadata Read，無 user permissions，2026-12-24 到期。
 - [x] 在 external scheduler 建立每 5 分鐘 POST job：2026-09-25 12:15 / 12:20 / 12:25 / 12:30 UTC 連續出現 `workflow_dispatch` detector run，間隔 5 分鐘，皆 success。
 - [x] 驗證 external request → `workflow_dispatch` → detector → changed alias CI 的完整鏈路：12:30 detector run 只 dispatch `CI — repo-02`（private-ci run #30）→ PASS；12:34 手動 dispatch 在無新 push 時未建立 CI run；三份 log 已知 private repository 名稱命中 0，Artifact count 0。
