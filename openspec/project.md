@@ -36,3 +36,12 @@
 - Artifact count 為 0，除非另有明確且經 review 的 public-safe artifact。
 - Cleanup、masking、command-file isolation 正常。
 - OpenSpec strict validation 在可用時通過。
+
+## Change 歸檔規則
+
+- `openspec/changes/` 只保留仍在進行中的 change。
+- Change 的必要 task、驗證與 review 全部完成後，必須立即歸檔，不長期留在 active 區。
+- 歸檔目的地為 `openspec/changes/archive/`。
+- 歸檔前不得為了「看起來完成」而把沒有證據的 task 勾成完成。
+- 若仍有 runtime observation、security review、strict validation 或其他 acceptance item 未完成，change 必須繼續留在 active 區。
+- 歸檔後保留 proposal、design、tasks、review、spec 與驗證紀錄，作為歷史決策證據。
