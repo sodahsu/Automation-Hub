@@ -10,7 +10,7 @@ The automation is implemented as a scheduled matrix inside the already-validated
 - Real target identities remain inside `PRIVATE_REPOS_JSON`.
 - The existing fine-grained PAT remains read-only and selected-repository scoped.
 - No private repository is modified to obtain automatic triggering.
-- Scheduled runs are intentionally polling-based rather than push-event-based.
+- Scheduled private-target runs are intentionally polling-based rather than private-repository push-event-based.
 
 ## Operational trade-off
 
@@ -19,3 +19,7 @@ A commit may wait up to roughly three hours before the next scheduled sweep. Thi
 ## Validation status
 
 Implementation is pending a manual post-refactor run and the first real scheduled sweep.
+
+## Hub regression trigger
+
+The bridge also runs a six-target regression when its own workflow or shared adapter code changes on `main`. This is deliberately path-scoped and does not create a private-repository event bridge. The first regression run was created automatically after the trigger commit, confirming that GitHub parsed the updated workflow. Initial job observation showed two targets running concurrently, matching `max-parallel: 2`.
