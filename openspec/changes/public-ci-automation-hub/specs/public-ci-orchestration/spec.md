@@ -1,142 +1,144 @@
 ## ADDED Requirements
 
-### Requirement: Public hub executes CI while target repositories remain private
+### Requirement: Public Hub 執行 CI，同時 target repositories 維持 Private
 
-The system SHALL execute Phase 1 CI from the public `Automation-Hub` repository while keeping all six target repositories private.
+系統必須從 Public `Automation-Hub` 執行 Phase 1 CI，同時六個 target repositories 必須維持 Private。
 
-#### Scenario: CI is manually requested for a private target
+#### Scenario: 手動要求執行某個 private target 的 CI
 
-- **WHEN** an authorized user manually dispatches the hub for a supported target alias
-- **THEN** the job SHALL run on the public hub's standard GitHub-hosted runner
-- **AND** the target repository SHALL remain private
-- **AND** the workflow SHALL NOT change target repository visibility
+- **WHEN** 授權使用者手動 dispatch Hub，並選擇支援的 target alias
+- **THEN** job 必須在 Public Hub 的標準 GitHub-hosted runner 上執行
+- **AND** target repository 必須維持 Private
+- **AND** workflow 不得變更 target repository visibility
 
-### Requirement: Private target identity is runtime-only public metadata
+### Requirement: Private target identity 只能在 runtime 解析
 
-Committed hub files SHALL use public-safe aliases `repo-01` through `repo-06`. The alias-to-private-repository mapping SHALL be supplied at runtime from a GitHub Secret and SHALL NOT be committed.
+已 commit 的 Hub 檔案必須只使用 public-safe alias：`repo-01`～`repo-06`。
 
-#### Scenario: Repository mapping is resolved
+Alias-to-private-repository mapping 必須在 runtime 由 GitHub Secret 提供，且不得 commit。
 
-- **WHEN** the workflow resolves an alias to a private repository identifier
-- **THEN** it SHALL mask the resolved identifier before subsequent commands
-- **AND** SHALL NOT write the identifier into committed files, artifacts, or summaries
+#### Scenario: 解析 repository mapping
 
-#### Scenario: Alias is unknown
+- **WHEN** workflow 把 alias 解析成 private repository identifier
+- **THEN** 必須在後續 command 使用前先 mask 該 identifier
+- **AND** 不得把 identifier 寫入 committed files、Artifacts 或 summaries
 
-- **WHEN** a requested alias is absent from the secret mapping
-- **THEN** the workflow SHALL fail closed before clone
-- **AND** SHALL NOT guess or fall back to another repository
+#### Scenario: Alias 不存在
 
-### Requirement: Phase 1 private access is least-privilege read-only
+- **WHEN** requested alias 不存在於 Secret mapping
+- **THEN** workflow 必須在 checkout 前 fail closed
+- **AND** 不得猜測或 fallback 到其他 repository
 
-The hub SHALL authenticate to selected private repositories using a fine-grained token whose Phase 1 repository permissions are limited to the read access required for clone/CI.
+### Requirement: Phase 1 private access 必須採 least-privilege read-only
 
-#### Scenario: Target checkout is prepared
+Hub 必須使用 fine-grained token 存取 selected private repositories，且 repository permission 只限 checkout / CI 所需的 read access。
 
-- **WHEN** the hub clones a selected private repository
-- **THEN** authentication SHALL come from a GitHub Secret
-- **AND** the workflow SHALL NOT commit, push, tag, merge, or create branches in that repository
+#### Scenario: 準備 target checkout
 
-#### Scenario: Write capability is required
+- **WHEN** Hub checkout selected private repository
+- **THEN** authentication 必須來自 GitHub Secret
+- **AND** workflow 不得對該 repository 執行 commit、push、tag、merge 或建立 branch
 
-- **WHEN** a future use case requires write access
-- **THEN** this Phase 1 workflow SHALL NOT silently expand token permissions
-- **AND** write access SHALL require a separate reviewed OpenSpec change
+#### Scenario: 未來需要 write capability
 
-### Requirement: CI uses repository-native checks without source modification
+- **WHEN** 未來 use case 需要 write access
+- **THEN** Phase 1 workflow 不得靜默擴大 token permission
+- **AND** write access 必須另開經 review 的 OpenSpec change
 
-The hub SHALL execute only checks supported by the target repository's existing runtime/configuration and SHALL NOT modify application source or invent missing project scripts.
+### Requirement: CI 使用 repository-native checks，且不得修改 source
 
-#### Scenario: Standard Node CI scripts exist
+Hub 只能執行 target repository 既有 runtime / configuration 所支援的 checks，不得修改 application source，也不得發明缺少的 project script。
 
-- **WHEN** the target repository exposes supported lint, typecheck, test, or build scripts
-- **THEN** the hub SHALL run the applicable scripts using the repository's existing package-manager/lockfile contract
+#### Scenario: 存在標準 Node CI scripts
 
-#### Scenario: Optional script is absent
+- **WHEN** target repository 提供支援的 lint、typecheck、test 或 build script
+- **THEN** Hub 必須依該 repository 既有 package-manager / lockfile contract 執行適用的 scripts
 
-- **WHEN** a target does not define an optional CI stage
-- **THEN** the hub SHALL report that stage as `SKIP`
-- **AND** SHALL NOT add or synthesize a replacement script
+#### Scenario: Optional script 不存在
 
-#### Scenario: Repository runtime is not safely recognized
+- **WHEN** target 沒有定義某個 optional CI stage
+- **THEN** Hub 必須把該 stage 回報為 `SKIP`
+- **AND** 不得新增或合成替代 script
 
-- **WHEN** the generic adapter cannot determine a safe supported runtime
-- **THEN** the job SHALL stop or route to an explicitly reviewed target adapter
-- **AND** SHALL NOT mutate the checkout to make it fit the generic adapter
+#### Scenario: Repository runtime 無法安全辨識
 
-### Requirement: Public logs do not expose private source or secrets
+- **WHEN** generic adapter 無法判斷安全且支援的 runtime
+- **THEN** job 必須停止，或改走經明確 review 的 target adapter
+- **AND** 不得修改 checkout 來硬套 generic adapter
 
-The hub SHALL treat workflow logs as public output and SHALL minimize them to sanitized status information.
+### Requirement: Public logs 不得暴露 private source 或 Secret
 
-#### Scenario: CI succeeds
+Hub 必須把 workflow log 視為公開輸出，並將內容縮減為 sanitized status information。
 
-- **WHEN** CI stages complete
-- **THEN** the summary MAY show target alias and PASS/FAIL/SKIP state
-- **AND** SHALL NOT print token values, secret mappings, note bodies, source-file contents, environment files, or unapproved private identifiers
+#### Scenario: CI 成功
 
-#### Scenario: CI fails
+- **WHEN** CI stages 完成
+- **THEN** summary 可以顯示 target alias 與 PASS / FAIL / SKIP
+- **AND** 不得輸出 token value、Secret mapping、note body、source-file content、environment file 或未核准的 private identifier
 
-- **WHEN** a CI stage fails
-- **THEN** the workflow SHALL identify the failing stage with the minimum diagnostic output needed
-- **AND** SHALL NOT respond by dumping the private workspace or full environment
+#### Scenario: CI 失敗
 
-### Requirement: Private checkout is ephemeral and non-exportable
+- **WHEN** 某個 CI stage 失敗
+- **THEN** workflow 只需用最少診斷資訊指出 failing stage
+- **AND** 不得因此 dump private workspace 或 full environment
 
-The private repository checkout SHALL exist only in an ephemeral runner workspace for the current job.
+### Requirement: Private checkout 必須是 ephemeral，且不可匯出
 
-#### Scenario: Job completes or fails
+Private repository checkout 只能存在於目前 job 的 ephemeral runner workspace。
 
-- **WHEN** the job reaches cleanup
-- **THEN** the workflow SHALL remove the private workspace
-- **AND** cleanup SHALL be configured to run even after earlier step failure
+#### Scenario: Job 完成或失敗
 
-#### Scenario: Artifact upload is considered
+- **WHEN** job 進入 cleanup
+- **THEN** workflow 必須移除 private workspace
+- **AND** 即使前面 step 失敗，cleanup 也必須執行
 
-- **WHEN** the workflow would upload `workspace/`, source files, vault files, environment files, or source-bearing build output
-- **THEN** the upload SHALL be rejected in Phase 1
+#### Scenario: 考慮 Artifact upload
 
-### Requirement: Source checkout is not cached
+- **WHEN** workflow 嘗試上傳 `workspace/`、source files、vault files、environment files 或含 source 的 build output
+- **THEN** Phase 1 必須拒絕該 upload
 
-The hub SHALL NOT cache private source directories or the whole private workspace.
+### Requirement: Source checkout 不得 cache
 
-#### Scenario: Dependency caching is later introduced
+Hub 不得 cache private source directory 或整個 private workspace。
 
-- **WHEN** a dependency-manager cache is proposed
-- **THEN** it SHALL be limited to dependency cache material verified not to contain private source or credentials
-- **AND** SHALL require explicit review before enablement
+#### Scenario: 未來新增 dependency cache
 
-### Requirement: CI jobs are bounded and isolated
+- **WHEN** 有人提議加入 dependency-manager cache
+- **THEN** cache 必須只限已驗證不包含 private source 或 credential 的 dependency material
+- **AND** 啟用前必須經過明確 review
 
-Each target execution SHALL have bounded runtime and concurrency behavior.
+### Requirement: CI jobs 必須有界且彼此隔離
 
-#### Scenario: Duplicate runs target the same alias
+每個 target execution 必須有明確 runtime bound 與 concurrency 行為。
 
-- **WHEN** multiple runs for the same target overlap
-- **THEN** the workflow SHALL apply a target-scoped concurrency policy
-- **AND** SHALL avoid uncontrolled duplicate execution
+#### Scenario: 同一 alias 有重複 run
 
-#### Scenario: CI hangs
+- **WHEN** 同一 target 有多個 overlapping run
+- **THEN** workflow 必須套用 target-scoped concurrency policy
+- **AND** 避免無控制的 duplicate execution
 
-- **WHEN** execution exceeds the configured job timeout
-- **THEN** GitHub Actions SHALL terminate the job
-- **AND** cleanup SHALL still be attempted
+#### Scenario: CI hang 住
 
-### Requirement: Production mutation remains outside the recovery path
+- **WHEN** execution 超過設定的 job timeout
+- **THEN** GitHub Actions 必須終止 job
+- **AND** cleanup 仍必須嘗試執行
 
-The Phase 1 hub SHALL restore validation only and SHALL NOT perform production deployment or other production mutation.
+### Requirement: Production mutation 必須維持在 recovery path 之外
 
-#### Scenario: Existing target repository has deploy workflows
+Phase 1 Hub 只能恢復 validation，不得執行 production deployment 或其他 production mutation。
 
-- **WHEN** a target repository contains deploy/release/publish workflows
-- **THEN** those workflows SHALL remain outside this hub change
-- **AND** this change SHALL NOT delete, disable, or rewrite them
+#### Scenario: Target repository 已有 deploy workflow
 
-### Requirement: Existing private workflows remain a rollback reference
+- **WHEN** target repository 包含 deploy / release / publish workflow
+- **THEN** 這些 workflow 必須維持在本 Hub change 之外
+- **AND** 本 change 不得刪除、停用或重寫它們
 
-The recovery implementation SHALL coexist with existing private-repository workflow definitions.
+### Requirement: 既有 private workflows 必須保留作為 rollback reference
 
-#### Scenario: Hub recovery is not acceptable
+Recovery implementation 必須與既有 private-repository workflow definitions 共存。
 
-- **WHEN** the hub is disabled, fails security review, or private Actions capacity returns
-- **THEN** no source rollback SHALL be required in any target repository
-- **AND** the existing private workflows SHALL remain available as the prior reference path
+#### Scenario: Hub recovery 不再適用
+
+- **WHEN** Hub 被停用、未通過 security review，或 private Actions capacity 恢復
+- **THEN** target repositories 不應需要任何 source rollback
+- **AND** 既有 private workflows 必須繼續可用，作為原本 reference path
