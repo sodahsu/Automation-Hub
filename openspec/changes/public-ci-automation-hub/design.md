@@ -7,9 +7,9 @@
 其中只能包含：
 
 - workflow
-- generic script
-- security policy
-- public-safe alias
+- 通用 script
+- 安全政策
+- public-safe alias（公開安全別名）
 
 六個 target repositories 必須繼續維持 Private，只能在 job 執行期間 checkout 到 ephemeral runner workspace。
 
@@ -145,7 +145,7 @@ Dependency-manager cache 只有在證明不含 private checkout 或 environment 
 永遠不得 cache：
 
 - `workspace/`
-- private source directory
+- private source 目錄
 - `.env*`
 - credentials
 - vault contents
@@ -206,7 +206,7 @@ Hub 先恢復 validation；deployment migration 必須另開 OpenSpec change。
 - 執行 checkout + safe health check。
 - 檢查 log 是否洩漏 metadata / content。
 
-### Phase C — CI command validation
+### Phase C — CI 指令驗證
 
 - 對 pilot 啟用 repository-native install / lint / typecheck / test / build。
 - 與 repository-local 或已知可用的 CI 行為比較。
@@ -216,12 +216,12 @@ Hub 先恢復 validation；deployment migration 必須另開 OpenSpec change。
 - 其餘 target mapping 只加入 private Secret。
 - Alias 逐一驗證。
 
-### Phase E — Operational handoff
+### Phase E — 操作交接
 
 - Private quota 無法使用期間，以 Public Hub 作為 temporary / primary CI path。
 - 原 private workflow 保留，供 rollback / reference。
 
-### Phase F — 後續 automation
+### Phase F — 後續自動化
 
 - 另外評估 scheduled polling、GitHub App / webhook dispatch 或其他 event bridge。
 - 不把本 change 靜默擴張成 eventing platform。
