@@ -80,7 +80,7 @@
 - [x] 8.3 Confirm each target's package manager/runtime assumptions. repo-01 through repo-04 use Node 22 paths, repo-05 uses Python + Node 20.19.0 for OpenSpec, and repo-06 uses Python with sparse Git metadata for Vault Health.
 - [x] 8.4 Confirm each target's supported CI stages. Generic Node `check:ci`, repo-04 dedicated governance/architecture adapter, repo-05 candidate-contract adapter, and repo-06 Vault Health adapter are all exercised.
 - [x] 8.5 Confirm content-heavy targets use safe aggregate-only logging; repo-06 published only sanitized stage statuses, with no private report body or known private repository name in the fetched public log.
-- [ ] 8.6 Run a six-target manual health sweep and capture sanitized summary.
+- [x] 8.6 Run a six-target automatic regression sweep (#17) and capture sanitized per-target summaries; all six PASS.
 
 ## 9. Existing Private Workflows
 
@@ -91,8 +91,8 @@
 
 ## 10. Follow-up Automation — Separate Decision
 
-- [ ] 10.1 After manual hub stability, evaluate scheduled polling or event bridge.
-- [ ] 10.2 If automatic triggering is required, create a separate OpenSpec change.
+- [x] 10.1 After manual hub stability, evaluate scheduled polling or event bridge; selected scheduled polling to avoid new write credentials/infrastructure.
+- [x] 10.2 Automatic triggering implemented under separate change `automatic-private-ci-sweep`.
 - [x] 10.3 Do not add private-repo write access merely to obtain automatic triggers.
 
 ## 11. Review / Completion
@@ -100,7 +100,7 @@
 - [ ] 11.1 Independent security review of real-run logs, masking, artifacts, permissions, and cleanup.
 - [x] 11.2 Verify committed repository content contains no known private target identifier or secret value.
 - [x] 11.3 Verify repo-01 public-runner CI works end-to-end while private-repository hosted Actions quota remains unavailable.
-- [ ] 11.4 Command-file isolation hardening is verified on repo-01; keep Phase 1 open while validating additional targets/adapters.
+- [x] 11.4 Phase 1 validated across all six target adapters; automatic six-target regression run #17 also PASS.
 
 ## Implementation checkpoint — 2026-09-25
 
