@@ -1,54 +1,49 @@
 # Tasks: automatic-private-ci-sweep
 
-## 1. Workflow trigger
+## 1. Five-minute detector
 
-- [x] Add a scheduled trigger to the existing Private CI Bridge.
-- [x] Preserve `workflow_dispatch` with the current six alias choices.
-- [x] Use a public-safe alias matrix for scheduled runs.
-- [x] Keep manual runs to a one-item matrix containing the selected alias.
-- [x] Add a `main` push regression trigger limited to `.github/workflows/private-ci.yml` and `scripts/common/**`.
+- [x] 建立 `.github/workflows/detect-private-changes.yml`。
+- [x] 設定 cron：`2-57/5 * * * *`。
+- [x] 保留 detector 的 manual dispatch。
+- [x] 加入 detector-file push trigger，供 detector 自身 regression 使用。
 
-## 2. Execution behavior
+## 2. Change detection
 
-- [x] Set `fail-fast: false`.
-- [x] Limit matrix parallelism to two.
-- [x] Move per-target concurrency to job scope using the matrix alias.
-- [x] Reuse the existing private checkout and CI adapter path without duplication.
+- [x] 讀取六個 alias 的 private repository metadata。
+- [x] 使用 `pushed_at` 作為保守的 private push activity 訊號。
+- [x] 讀取 Public Automation-Hub 既有 `private-ci.yml` run/job history。
+- [x] 以最近 CI job `started_at` 判斷該次 push 是否已被涵蓋。
+- [x] 無新 push → `SKIP`。
+- [x] 有新 push → dispatch 對應 alias。
+- [x] CI 已執行中 → `WAIT`，避免重複 queue。
 
-## 3. Security boundary
+## 3. Permission boundary
 
-- [x] Do not add private-repository write access.
-- [x] Do not add a second token.
-- [x] Keep target mapping in `PRIVATE_REPOS_JSON` only.
-- [x] Keep source artifacts/caches disabled.
-- [x] Preserve sanitized summary and temporary command-file isolation.
-- [x] Preserve always-run workspace/auth cleanup.
+- [x] Private repository credential 維持 read-only。
+- [x] 不新增第二顆 private token。
+- [x] Detector 的 `actions: write` 僅作用於 Public Automation-Hub。
+- [x] 不保存 private commit SHA 或 alias mapping 到公開檔案。
+- [x] 不建立 private webhook/event bridge。
 
-## 4. Validation
+## 4. Existing CI behavior
 
-- [x] Confirm GitHub parses the updated workflow: push-triggered regression run #17 was created from the new workflow.
-- [ ] Manually dispatch one alias after the matrix refactor and confirm PASS (optional regression check; automatic matrix path is already validated by run #17).
-- [ ] Observe the first cron-triggered sweep. Equivalent six-target matrix behavior and max-two concurrency are already validated by push regression run #17.
-- [x] Review six-target automatic regression run #17 logs/artifacts using the Phase 1 leakage criteria: all six jobs success, zero known private-name hits, zero private-report markers, zero artifacts.
+- [x] `private-ci.yml` 移除固定 cron 全掃。
+- [x] Manual single-target dispatch 保留。
+- [x] Hub workflow/adapter code push regression 保留。
+- [x] 六倉 CI adapter 與 sanitized log boundary 不變。
 
-## 5. Future option
+## 5. Runtime validation
 
-- [ ] Consider a near-real-time webhook/GitHub App event bridge only if three-hour polling is too slow.
+- [x] Detector workflow 由建立 commit 自動觸發成功。
+- [x] Detector run #1 結論為 success。
+- [x] 第一次 detector run 在沒有新 private push 時沒有建立新的 CI workflow_dispatch run。
+- [x] Detector log 未輸出 private repository 真名。
+- [ ] 等待下一次真實 private push，確認只 dispatch 發生變更的 alias。
+- [ ] 觀察第一筆 cron event，確認 5 分鐘 schedule 正常觸發。
 
-## 6. Hub regression trigger
+## 6. Prior regression evidence
 
-- [x] Push regression is scoped to `main` only.
-- [x] Push regression is path-filtered to workflow/adapter code only.
-- [x] Regression run #17 was automatically created after the trigger commit.
-- [x] Initial observation confirms `max-parallel: 2`: repo-01 and repo-02 started first while later aliases waited.
-
-## 7. Automatic regression evidence — run #17
-
-- [x] GitHub parsed the refactored workflow and automatically created the run from a path-scoped push.
-- [x] Six aliases executed through the matrix.
-- [x] `max-parallel: 2` behavior observed during execution.
-- [x] `fail-fast: false` preserved independent target execution.
-- [x] repo-01 through repo-06 all PASS.
-- [x] Public-log scan: no known private repository name hits across all six jobs.
-- [x] Private-report marker scan: zero hits across all six jobs.
-- [x] Artifact count: 0.
+- [x] 六倉 matrix regression run #17 全部 PASS。
+- [x] run #17 log scan：0 known private-name hits。
+- [x] run #17 private-report marker hits：0。
+- [x] run #17 artifact count：0。
