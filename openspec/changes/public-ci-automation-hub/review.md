@@ -159,3 +159,19 @@ The adapter mirrors the manual/read-only validation path: pinned PyYAML installa
 ## repo-05 Real Target Result
 
 The dedicated adapter is functioning correctly. Unit tests passed and the next stage, candidate-contract validation, failed on an actual private-repository lifecycle rule rather than an Automation-Hub defect. The private catalog contains exactly one active candidate whose review checkpoint expired on 2026-09-24 while its status remains `researching`; the candidate's decision record explicitly identifies that date as its review checkpoint. The hub intentionally leaves this red: silently converting the gate to advisory or auto-extending the date would no longer match the original private CI semantics. No private-repository content was modified.
+
+## repo-06 Final Validation
+
+- Result: PASS.
+- The large content target completed sparse read-only checkout and all intended manual Vault Health gates successfully.
+- The selected-repository PAT was used only for clone and lazy sparse materialization; all remotes were removed before CI execution.
+- All structural/read-only stages passed: Python dependency setup, health unit tests, skill sync, metadata normalizer, vault health, follow-up radar, stale-fact audit, Hub drift, index drift, relation health, canonical memory health, and source-link dry-run validation.
+- Schedule-only claim-harvest and source-backlog stages were correctly skipped.
+- Public log review found no known private repository name hits and no private report body. The phrase `Vault Health` appears only in public orchestration comments.
+- Artifact count: 0.
+
+## Six-target Rollout Status
+
+The public recovery path has now been exercised against all six aliases. Five targets complete successfully end-to-end. The remaining target, repo-05, reaches and executes its dedicated adapter correctly but fails on one genuine lifecycle contract violation in the private repository: an active research candidate whose review checkpoint expired on 2026-09-24. This is target debt, not bridge failure, so the hub preserves the red status instead of weakening or bypassing the private CI rule.
+
+Operationally, Phase 1 has achieved its recovery objective: public GitHub-hosted Actions can read the selected private repositories with a fine-grained read-only token and execute sanitized CI without changing repository visibility or requiring private-repository hosted Actions minutes. Automatic per-push triggering and any private-repository mutation remain outside this change.
