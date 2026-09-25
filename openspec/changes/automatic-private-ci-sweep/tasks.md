@@ -32,7 +32,7 @@
 - [x] Hub workflow/adapter code push regression 保留。
 - [x] 六倉 CI adapter 與 sanitized log boundary 不變。
 
-## 5. Runtime 驗證
+## 5. 執行期驗證
 
 - [x] Detector workflow 由建立 commit 自動觸發成功。
 - [x] Detector run #1 結論為 success。
@@ -41,9 +41,9 @@
 - [ ] 等待下一次真實 private push，確認只 dispatch 發生變更的 alias。
 - [ ] 觀察第一筆 cron event，確認 5 分鐘 schedule 正常觸發。
 
-## 6. 先前 regression 證據
+## 6. 先前回歸測試證據
 
 - [x] 六倉 matrix regression run #17 全部 PASS。
-- [x] run #17 log scan：0 known private-name hits。
-- [x] run #17 private-report marker hits：0。
+- [x] run #17 log 掃描：已知 private repository 名稱命中 0。
+- [x] run #17 private report 內容標記命中 0。
 - [x] run #17 artifact count：0。
