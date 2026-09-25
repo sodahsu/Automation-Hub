@@ -76,9 +76,9 @@
 ## 8. Six-Target Rollout
 
 - [x] 8.1 Add all six alias mappings in Secret only, not committed config.
-- [ ] 8.2 Validate each alias independently. repo-01 and repo-02 are PASS.
-- [ ] 8.3 Confirm each target's package manager/runtime assumptions. repo-01 and repo-02 are confirmed Node 22 + npm.
-- [ ] 8.4 Confirm each target's supported CI stages. repo-01 and repo-02 are confirmed canonical `check:ci`.
+- [ ] 8.2 Validate each alias independently. repo-01, repo-02, and repo-03 are PASS.
+- [ ] 8.3 Confirm each target's package manager/runtime assumptions. repo-01, repo-02, and repo-03 are confirmed Node 22 + npm.
+- [ ] 8.4 Confirm each target's supported CI stages. repo-01, repo-02, and repo-03 are confirmed canonical `check:ci`.
 - [ ] 8.5 Confirm content-heavy targets use safe aggregate-only logging.
 - [ ] 8.6 Run a six-target manual health sweep and capture sanitized summary.
 
@@ -124,6 +124,15 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 ## Rollout checkpoint — repo-02 run #6
 
 - [x] repo-02 read-only archive checkout PASS.
+- [x] Node 22 / npm install PASS.
+- [x] Canonical `check:ci` PASS.
+- [x] Sanitized summary only; no private-generated Job Summary content.
+- [x] No known private repository name hit in fetched job log.
+- [x] Artifact count 0.
+
+## Rollout checkpoint — repo-03 run #7
+
+- [x] repo-03 read-only archive checkout PASS.
 - [x] Node 22 / npm install PASS.
 - [x] Canonical `check:ci` PASS.
 - [x] Sanitized summary only; no private-generated Job Summary content.
