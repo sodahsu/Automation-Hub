@@ -39,3 +39,18 @@ Detector 是獨立 workflow，因此沒有變更時產生的 polling run 不會�
 ## 尚待觀察
 
 還需要等待一筆真實 private push，確認 detector 只 dispatch 對應 alias；另外等待第一筆 cron event，取得 scheduler-specific evidence。
+
+
+## 真實 private push 驗證
+
+在沒有為測試額外修改 private repo 的情況下，偵測到一筆真實的新 push：
+
+- 只有 repo-04 的 private repository `pushed_at` 晚於最近一次六倉 regression；
+- 其他五個 aliases 都已被較新的 CI job 涵蓋；
+- detector 只 dispatch 一筆 Public CI；
+- 該 run 唯一 job 為 `CI — repo-04`；
+- repo-04 CI 最終 PASS。
+
+第一次 dispatch 時另發現 GitHub API 實際成功建立 workflow run，但回傳 HTTP 200；原 detector 只接受 HTTP 204，因此把成功誤判為 failure。成功條件已修正為所有 HTTP 2xx，修正後 detector PASS。
+
+這個 smoke test 已證明「有新 push 才跑，且只跑變更 alias」的核心 selector 行為。
