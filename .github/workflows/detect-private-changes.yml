@@ -1,3 +1,4 @@
+# 觸發測試：private repo 新 push 應只 dispatch 對應 alias。
 # 每 5 分鐘偵測 private repository push activity；只對尚未被 Public CI 涵蓋的新 push dispatch 對應 alias。
 name: Detect Private Repository Changes
 
