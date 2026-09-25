@@ -76,6 +76,8 @@ cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可
 
 ## GitHub 原生 schedule
 
-在 external scheduler 完成驗證以前，保留 GitHub 原生 `schedule` 作為 best-effort secondary trigger。
+External scheduler 已於 2026-09-25 完成完整鏈路驗證，GitHub 原生 `schedule` 已從 detector 移除，避免兩個喚醒來源互相 cancel。External scheduler 目前是唯一的定時喚醒來源。
 
-外部 scheduler 驗證穩定後，可再決定是否移除 GitHub `schedule`，避免重複 wakeup。
+## Token 續期
+
+專用 token 於 2026-12-24 到期。到期後 cron-job.org 會收到 401，detector 將停止被喚醒；Public CI 本身不會因此失敗，所以不會有 GitHub 端告警。續期時在 GitHub token 設定頁 Regenerate，並更新 cron-job.org 的 Authorization header；cron-job.org 的 Failure notification 必須維持 On。

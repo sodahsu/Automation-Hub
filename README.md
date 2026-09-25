@@ -89,13 +89,7 @@ private repository           僅在 runtime 解析
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
-排程：
-
-~~~text
-*/5 * * * *
-~~~
-
-也就是每 5 分鐘執行一次。
+喚醒來源：外部 scheduler（cron-job.org）每 5 分鐘呼叫 detector 的 `workflow_dispatch`，設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
 
 Detector 不會固定重跑六倉，而是：
 
@@ -109,6 +103,8 @@ Detector 不會固定重跑六倉，而是：
 這個 detector 不保存 private commit SHA，也不新增 private repo write 權限。只有 Public Automation-Hub 的 detector job 具有 `actions: write`，用途僅限觸發既有 Public CI workflow。
 
 因為採用 repository-level `pushed_at`，其他 branch 的 push 可能造成一次額外 default-branch CI；這是刻意採用的保守策略。
+
+**Hub CI 綠燈的意思是「該 repo 的 default branch 健康」，不代表剛 push 的 feature branch 通過。** 分支與 PR 驗證由各 private repo 自己的 CI 負責；Hub CI 定位為六倉 default branch 的健康監控。
 
 ## Hub 自身的六倉 regression
 

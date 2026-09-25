@@ -89,3 +89,8 @@ GitHub 原生 `schedule` 已使用下列方式交叉驗證：
 實際設定方式記錄於 `docs/external-scheduler.md`。
 
 目前剩餘 blocker 是建立外部服務帳號內的 schedule 與專用 GitHub token。這兩項 credential 不應出現在 repository 或聊天內容中。
+
+
+## 上線後更新（2026-09-25）
+
+External scheduler 自 12:15 UTC 起每 5 分鐘穩定喚醒 detector，完整鏈路（external → detector → 只 dispatch 有變更的 `CI — repo-02` → PASS）已驗證；專用 token 權限已於 GitHub 設定頁核對。GitHub 原生 `schedule` 期間只出現一筆 event，已從 detector 移除。上方「剩餘 blocker」段落已解除。

@@ -1,9 +1,8 @@
-# 每 5 分鐘偵測 private repository push activity；只對尚未被 Public CI 涵蓋的新 push dispatch 對應 alias。
+# 由外部 scheduler 每 5 分鐘以 workflow_dispatch 喚醒；GitHub 原生 schedule 實測幾乎不觸發，且與外部喚醒互相 cancel，故移除。
+# 只對尚未被 Public CI 涵蓋的新 push dispatch 對應 alias。
 name: Detect Private Repository Changes
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
   push:
     branches:

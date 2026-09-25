@@ -2,11 +2,11 @@
 
 ### Requirement: Private repository 變更偵測 MUST 每 5 分鐘執行
 
-系統 **MUST** 以 Public Automation-Hub 的 scheduled workflow 每 5 分鐘檢查六個 private repository aliases 的 push activity。
+系統 **MUST** 每 5 分鐘喚醒 Public Automation-Hub 的 detector workflow，檢查六個 private repository aliases 的 push activity。喚醒來源為外部 scheduler 呼叫 detector 的 `workflow_dispatch`；外部 scheduler **MUST** 使用只具 Automation-Hub Actions read/write 權限的專用 token。
 
 #### Scenario: 排程時間到達
 
-- **WHEN** detector 的 cron 排程觸發
+- **WHEN** 外部 scheduler 在排程時間呼叫 detector 的 `workflow_dispatch`
 - **THEN** detector **MUST** 檢查 `repo-01`～`repo-06`
 - **AND** detector **MUST NOT** 因為排程本身就固定執行六倉完整 CI
 
@@ -37,6 +37,17 @@ Detector **MUST** 檢查最近 CI job 的 execution status，避免同一 alias 
 - **THEN** detector **MUST** 標記為 `WAIT`
 - **AND** **MUST NOT** 在本輪重複 dispatch
 - **AND** 下一輪 detector **MUST** 重新判斷
+
+### Requirement: Private CI MUST 只驗證 default branch
+
+由 detector 觸發的 private CI **MUST** 取得 private repository 的 default branch，且 **MUST NOT** 將 private branch 或 ref 名稱作為 Public workflow input。
+
+#### Scenario: 非 default branch 有新 push
+
+- **WHEN** private repository 的非 default branch 有新 push，使 `pushed_at` 更新
+- **THEN** detector **MAY** dispatch 該 alias 的 CI
+- **AND** 該 CI **MUST** 驗證 default branch，而非被 push 的 branch
+- **AND** CI 結果 **MUST** 被解讀為 default branch 健康狀態，不作為 feature branch 的驗證結果
 
 ### Requirement: Private repository access MUST 維持 read-only
 

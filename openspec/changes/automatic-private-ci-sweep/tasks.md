@@ -85,3 +85,11 @@
 - [x] 建立專用 fine-grained token「Automation-Hub external scheduler」：2026-09-25 於 GitHub 設定頁確認 Repository access 僅 `sodahsu/Automation-Hub`，Repository permissions 僅 Actions Read and write + Metadata Read，無 user permissions，2026-12-24 到期。
 - [x] 在 external scheduler 建立每 5 分鐘 POST job：2026-09-25 12:15 / 12:20 / 12:25 / 12:30 UTC 連續出現 `workflow_dispatch` detector run，間隔 5 分鐘，皆 success。
 - [x] 驗證 external request → `workflow_dispatch` → detector → changed alias CI 的完整鏈路：12:30 detector run 只 dispatch `CI — repo-02`（private-ci run #30）→ PASS；12:34 手動 dispatch 在無新 push 時未建立 CI run；三份 log 已知 private repository 名稱命中 0，Artifact count 0。
+
+
+## 10. 上線後調整
+
+- [x] 移除 detector 的 GitHub 原生 `schedule`，外部 scheduler 為唯一定時喚醒來源。
+- [x] README 與 spec 明訂 Hub CI 只驗證 default branch，綠燈不代表 feature branch 通過。
+- [x] `docs/external-scheduler.md` 記錄 token 2026-12-24 到期的續期程序。
+- [ ] 確認 cron-job.org Failure notification 為 On。
