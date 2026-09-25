@@ -92,10 +92,14 @@ jobs:
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
               git clone --depth 1 --filter=blob:none --sparse --no-tags \
               "https://github.com/${private_repo}.git" workspace
-            rm -f "${askpass}"
 
-            git -C workspace sparse-checkout set \
+            # Partial clone may lazily fetch blobs while materializing the sparse
+            # checkout, so keep read-only auth only for this one fetch-capable step.
+            GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+              git -C workspace sparse-checkout set \
               .agents .claude 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive
+
+            rm -f "${askpass}"
 
             # Keep local Git metadata because Vault Health uses git ls-files,
             # but remove every remote so later CI has no repository write path.
