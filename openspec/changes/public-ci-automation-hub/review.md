@@ -80,3 +80,13 @@ This change is now **implementation-ready but runtime-blocked on manual Secret c
 The repository-side Phase 1 skeleton is in place. The next authorized operation is to add the two GitHub Actions Secrets, map one pilot alias, manually dispatch the workflow, and review both success and failure behavior before expanding to all six targets.
 
 This review does not authorize production deployment migration, write access to any private repository, public disclosure of target identities, or deletion/disablement of existing private workflows.
+
+## Pilot Evidence — repo-01 run #4
+
+- Result: PASS.
+- Public runner completed the read-only archive checkout, Node setup, dependency install, and canonical `check:ci` path.
+- Sanitized bridge result: `package-json` PASS, package manager npm PASS, install PASS, `check:ci` PASS.
+- Test evidence exposed by the target before hardening: 15 test files / 135 tests passed.
+- Connector-side log review found no occurrences of the known private repository names checked for this implementation pass.
+- Artifact count: 0.
+- The successful run revealed one additional boundary: private test tooling could append its own report to `GITHUB_STEP_SUMMARY`. The workflow has since been hardened so child CI receives isolated temporary command-file paths for `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH`. This hardening still requires one real-run verification before Phase 1 sign-off.
