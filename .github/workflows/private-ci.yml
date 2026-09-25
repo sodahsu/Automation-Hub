@@ -75,25 +75,29 @@ jobs:
           echo "::add-mask::${private_repo}"
 
           rm -rf workspace
+          mkdir -p workspace
 
-          askpass="${RUNNER_TEMP}/automation-hub-git-askpass.sh"
-          cat > "${askpass}" <<'ASKPASS'
-          #!/usr/bin/env bash
-          case "$1" in
-            *Username*) printf '%s\n' "x-access-token" ;;
-            *Password*) printf '%s\n' "${GH_TOKEN}" ;;
-            *) exit 1 ;;
-          esac
-          ASKPASS
-          chmod 700 "${askpass}"
+          # Phase 1 is strictly read-only. Use the repository archive API, which
+          # requires only Contents: Read for a fine-grained PAT.
+          archive="${RUNNER_TEMP}/private-repo.tar.gz"
+          http_code="$(curl --silent --show-error --location \
+            --output "${archive}" \
+            --write-out "%{http_code}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${private_repo}/tarball")"
 
-          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
-            git clone --depth 1 --no-tags "https://github.com/${private_repo}.git" workspace
+          if [[ "${http_code}" != "200" ]]; then
+            rm -f "${archive}"
+            echo "::error title=Private repository access denied::Read-only archive request returned HTTP ${http_code}. Verify the fine-grained token includes this repository and Contents: Read."
+            exit 1
+          fi
 
-          rm -f "${askpass}"
-          git -C workspace remote set-url origin "https://github.com/REDACTED/REDACTED.git"
+          tar -xzf "${archive}" -C workspace --strip-components=1
+          rm -f "${archive}"
 
-          echo "Private target checkout completed."
+          echo "Private target checkout completed with read-only archive access."
 
       - name: Set up Node runtime
         if: ${{ hashFiles('workspace/package.json') != '' }}
