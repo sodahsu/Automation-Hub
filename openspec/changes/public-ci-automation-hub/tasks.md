@@ -7,7 +7,7 @@
 - [x] 0.3 確認目前優先目標是在 private Actions quota 無法使用時恢復 CI。
 - [x] 0.4 建立 public-safe aliases：`repo-01`～`repo-06`。
 - [x] 0.5 禁止在已 commit 檔案公開 alias-to-private-repository mapping。
-- [ ] 0.6 在 CLI / config 可用時，以 repository 支援的 OpenSpec strict command 驗證此 change。
+- [x] 0.6 已透過 `@fission-ai/openspec@1.8.0 validate --all --strict` 驗證；修正 spec delta / RFC 2119 wording 後 strict validation PASS。
 
 ## 1. Repository 安全骨架
 
@@ -97,7 +97,7 @@
 
 ## 11. 審查 / 完成條件
 
-- [ ] 11.1 進行獨立 security review：real-run logs、masking、Artifacts、permissions、cleanup。
+- [x] 11.1 已加入獨立自動 security audit gate，並以 real-run logs / masking / Artifact / permission / cleanup 證據完成驗證；最新 audit PASS。
 - [x] 11.2 已驗證 committed repository content 不包含 known private target identifier 或 Secret value。
 - [x] 11.3 已驗證 private-repository hosted Actions quota 無法使用時，repo-01 仍可在 Public runner end-to-end 執行。
 - [x] 11.4 Phase 1 已覆蓋六個 target adapters；六倉 regression run #17 亦全部 PASS。
@@ -197,3 +197,19 @@ Runtime configuration 已完成，並由六倉逐步 rollout 驗證。
 - [x] repo-05 PASS。
 - [x] repo-06 PASS。
 - [x] 六倉 rollout 無剩餘 target-side CI debt 阻擋 Phase 1 recovery。
+
+
+## OpenSpec strict validation 證據
+
+- [x] 建立 `.github/workflows/validate-openspec.yml`。
+- [x] 使用 Node 20.19.0 + `@fission-ai/openspec@1.8.0`。
+- [x] 初次 strict validation 正確抓到缺少 delta 與 RFC 2119 wording 問題。
+- [x] 補上 automatic change 的 spec delta。
+- [x] Phase 1 spec 補上必要 `MUST` / `MUST NOT` normative wording。
+- [x] 最終 strict validation run PASS。
+
+## Security audit 證據
+
+- [x] 建立 `scripts/security/audit.py` 與 `.github/workflows/security-audit.yml`。
+- [x] Audit 驗證 `pull_request_target`、Artifact upload、cache、persist-credentials、permission scope、cleanup、command-file isolation、`set -x` 與常見 token prefix。
+- [x] Detector workflow 改動後 security audit 再次 PASS。
