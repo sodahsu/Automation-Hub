@@ -216,6 +216,6 @@ Cleanup 階段會刪除所有暫存 command files，最後只發布 Hub 自己�
 目前主要變更：
 
 - `openspec/changes/public-ci-automation-hub/` — Phase 1 唯讀 CI 復原與六倉 rollout。
-- `openspec/changes/automatic-private-ci-sweep/` — 每 5 分鐘 private change detector 與 Hub-code regression trigger。
+- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 5 分鐘 private change detector 與 Hub-code regression trigger。
 
 實作需同時遵守兩個 change 中的安全、遷移與驗證規則。

@@ -92,4 +92,4 @@
 - [x] 移除 detector 的 GitHub 原生 `schedule`，外部 scheduler 為唯一定時喚醒來源。
 - [x] README 與 spec 明訂 Hub CI 只驗證 default branch，綠燈不代表 feature branch 通過。
 - [x] `docs/external-scheduler.md` 記錄 token 2026-12-24 到期的續期程序。
-- [ ] 確認 cron-job.org Failure notification 為 On。
+- [x] 確認 cron-job.org Failure notification 為 On：2026-09-25 於 console 核對「execution fails」已勾選、失敗 1 次即通知，「因失敗過多被停用」通知亦已勾選。
