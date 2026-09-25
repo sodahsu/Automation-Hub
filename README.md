@@ -122,3 +122,7 @@ Implementation follows that change's security and migration gates.
 ## Actions command-file isolation
 
 Private-repository CI executes with temporary replacements for `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH`. This prevents target tooling from directly injecting summaries, outputs, environment mutations, or PATH mutations into the public orchestration job. The temporary command files are deleted during the always-run cleanup step; only the hub-generated sanitized summary is published.
+
+## Alias-specific validation
+
+Most Node targets use the repository's existing `check:ci` when available. `repo-04` is an exception: its private CI contains broader governance and architecture gates than its package-level aggregate script. The hub therefore applies an additional read-only adapter for `repo-04` covering ShellCheck, governance, architecture, skill routing/audit, runner integration, spec-governance, spec-truth-gate, and the repository's existing `check:ci`. The adapter creates only a local temporary Git baseline with no remote and no credentials, then removes the workspace during cleanup.
