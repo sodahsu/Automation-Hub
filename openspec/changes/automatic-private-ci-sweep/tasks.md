@@ -71,4 +71,17 @@
 - [x] repo-06 private repo 有新 push → detector dispatch `CI — repo-06` → PASS。
 - [x] 最近一次五倉 hardening 後，detector 只 dispatch 有變更的 repo-01 / 02 / 03 / 05 / 06；未變更的 repo-04 沒有被多跑。
 - [x] 這 5 筆 Public CI log：已知 private repository 名稱命中 0、private report marker 命中 0、Artifact count 0。
-- [ ] 等待第一筆真正的 `event: schedule` detector run，完成「完全無需手動碰 Automation-Hub」的 end-to-end 排程證據。
+- [x] GitHub 原生 schedule 經多輪與 fresh probe workflow 驗證仍為 0 筆 event；已判定不可作為唯一 wakeup mechanism，改採 external scheduler fallback。
+
+
+## 9. 外部排程備援
+
+- [x] 建立獨立 schedule probe 與全新 workflow ID 驗證 GitHub Scheduler。
+- [x] 多輪觀察仍為 0 筆 `event: schedule`，排除 detector script / Secret / private CI 邏輯。
+- [x] 測試 Vercel Cron fallback。
+- [x] 確認目前 Vercel plan 不接受每 5 分鐘 Cron；加入 `*/5` 後 deployment failure，已完整還原。
+- [x] 建立 `docs/external-scheduler.md`，定義 external HTTP scheduler fallback。
+- [x] External scheduler 僅 dispatch Public detector，不取得 private repo mapping / read token。
+- [ ] 建立專用 fine-grained token：只允許 `sodahsu/Automation-Hub` 的 Actions Read and write。
+- [ ] 在 external scheduler 建立每 5 分鐘 POST job。
+- [ ] 驗證 external request → `workflow_dispatch` → detector → changed alias CI 的完整鏈路。
