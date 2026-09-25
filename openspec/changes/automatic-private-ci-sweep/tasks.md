@@ -39,7 +39,7 @@
 - [x] 第一次 detector run 在沒有新 private push 時沒有建立新的 CI workflow_dispatch run。
 - [x] Detector log 未輸出 private repository 真名。
 - [x] 已使用真實 private push 驗證：只有 repo-04 的 `pushed_at` 晚於最近 CI，detector 只 dispatch `repo-04`，對應 CI 最終 PASS。
-- [ ] 觀察第一筆 cron event，確認 5 分鐘 schedule 正常觸發。
+- [x] 觀察第一筆 cron event：2026-09-25 12:03 UTC 出現第一筆 `event: schedule` 並 success；但僅此一筆，仍不作為唯一喚醒機制（見第 9 段）。
 
 ## 6. 先前回歸測試證據
 
@@ -82,6 +82,6 @@
 - [x] 確認目前 Vercel plan 不接受每 5 分鐘 Cron；加入 `*/5` 後 deployment failure，已完整還原。
 - [x] 建立 `docs/external-scheduler.md`，定義 external HTTP scheduler fallback。
 - [x] External scheduler 僅 dispatch Public detector，不取得 private repo mapping / read token。
-- [ ] 建立專用 fine-grained token：只允許 `sodahsu/Automation-Hub` 的 Actions Read and write。
-- [ ] 在 external scheduler 建立每 5 分鐘 POST job。
-- [ ] 驗證 external request → `workflow_dispatch` → detector → changed alias CI 的完整鏈路。
+- [ ] 建立專用 fine-grained token：只允許 `sodahsu/Automation-Hub` 的 Actions Read and write。（dispatch 已正常運作，表示 token 已存在；權限範圍無法從 run 端驗證，待使用者在 GitHub token 設定頁確認後勾選。）
+- [x] 在 external scheduler 建立每 5 分鐘 POST job：2026-09-25 12:15 / 12:20 / 12:25 / 12:30 UTC 連續出現 `workflow_dispatch` detector run，間隔 5 分鐘，皆 success。
+- [x] 驗證 external request → `workflow_dispatch` → detector → changed alias CI 的完整鏈路：12:30 detector run 只 dispatch `CI — repo-02`（private-ci run #30）→ PASS；12:34 手動 dispatch 在無新 push 時未建立 CI run；三份 log 已知 private repository 名稱命中 0，Artifact count 0。
