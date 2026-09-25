@@ -110,3 +110,13 @@ This review does not authorize production deployment migration, write access to 
 - Public Job Summary contained only the hub-generated sanitized target/stage table.
 - Connector-side log review found no known private repository name hits.
 - Artifact count: 0.
+
+## Rollout Evidence — repo-03 run #7
+
+- Result: PASS.
+- Read-only archive checkout completed successfully.
+- Node 22 / npm install completed successfully.
+- Canonical `check:ci` completed successfully.
+- Public Job Summary contained only the hub-generated sanitized target/stage table.
+- Connector-side log review found no known private repository name hits.
+- Artifact count: 0.
