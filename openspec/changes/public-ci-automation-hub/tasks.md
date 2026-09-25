@@ -100,7 +100,7 @@
 - [ ] 11.1 Independent security review of real-run logs, masking, artifacts, permissions, and cleanup.
 - [x] 11.2 Verify committed repository content contains no known private target identifier or secret value.
 - [x] 11.3 Verify repo-01 public-runner CI works end-to-end while private-repository hosted Actions quota remains unavailable.
-- [ ] 11.4 At least one real target now passes end-to-end; keep Phase 1 open until the command-file isolation hardening is re-run successfully and additional target adapters are validated.
+- [ ] 11.4 Command-file isolation hardening is verified on repo-01; keep Phase 1 open while validating additional targets/adapters.
 
 ## Implementation checkpoint — 2026-09-25
 
@@ -119,4 +119,4 @@ Current hard blocker is runtime configuration, not repository code: `PRIVATE_REP
 - [x] Detect that private test tooling can write to the public `GITHUB_STEP_SUMMARY` even when stdout/stderr are suppressed.
 - [x] Isolate `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH` to temporary sink files during untrusted private-repository CI execution.
 - [x] Remove the private command-file sink directory during `always()` cleanup.
-- [ ] Re-run a real target and confirm private tooling no longer injects its own Job Summary content.
+- [x] Re-run repo-01 (#5) and confirm private tooling no longer injects its own Job Summary content; only the hub-generated sanitized summary remains.
