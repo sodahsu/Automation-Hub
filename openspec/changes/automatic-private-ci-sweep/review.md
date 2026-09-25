@@ -63,3 +63,29 @@ Detector 是獨立 workflow，因此沒有變更時產生的 polling run 不會�
 其中 repo-04 使用先前的真實單倉 smoke test；repo-01、repo-02、repo-03、repo-05、repo-06 則在六倉 workflow hardening 後由同一輪 detector 自動判斷並 dispatch。當時 repo-04 沒有新 push，因此沒有被多跑，證明 selector 不會固定重跑六倉。
 
 目前唯一尚未取得的是 GitHub Scheduler 自己的第一筆 `event: schedule` run。也就是：change detection 與 per-alias dispatch 已確認；「完全無人工觸發 detector」的 scheduler-specific evidence 仍待第一筆 cron event。
+
+
+## GitHub Scheduler 失效與外部備援
+
+GitHub 原生 `schedule` 已使用下列方式交叉驗證：
+
+- detector 本身的 push / workflow_dispatch 都正常；
+- 六倉 private push detection 與 per-alias dispatch 都正常；
+- 建立完全不讀 Secret 的 schedule probe；
+- 再建立一支全新 workflow ID 的 schedule probe v2；
+- 修改 cron 後再改回，嘗試重新註冊 schedule。
+
+以上情況下仍沒有任何 `event: schedule` run，因此目前不能把 GitHub Scheduler 當作唯一自動喚醒來源。
+
+曾嘗試使用既有 Vercel production project 作為 5 分鐘 scheduler。API route 可正常部署，但加入 `*/5 * * * *` Cron 後 deployment failure，與目前 Hobby Cron 頻率限制一致，因此已完整還原，不讓 production 留下失敗設定。
+
+正式備援設計改為外部 HTTP scheduler：
+
+1. 每 5 分鐘 POST Public Automation-Hub 的 `workflow_dispatch` endpoint；
+2. 使用獨立 fine-grained token，只授權 Automation-Hub Actions write；
+3. private repository mapping / read-only token 繼續只存在 Automation-Hub GitHub Actions Secrets；
+4. detector 與六倉 CI 邏輯完全不搬到第三方服務。
+
+實際設定方式記錄於 `docs/external-scheduler.md`。
+
+目前剩餘 blocker 是建立外部服務帳號內的 schedule 與專用 GitHub token。這兩項 credential 不應出現在 repository 或聊天內容中。
