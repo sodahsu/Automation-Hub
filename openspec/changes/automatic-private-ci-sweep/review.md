@@ -18,8 +18,12 @@ A commit may wait up to roughly three hours before the next scheduled sweep. Thi
 
 ## Validation status
 
-Implementation is pending a manual post-refactor run and the first real scheduled sweep.
+Implementation is operational. Push regression run #17 exercised the same six-target matrix path used by the schedule and completed successfully. A future cron-triggered run remains to be observed for scheduler-specific evidence, but the matrix, concurrency, adapters, cleanup, and leakage boundaries are already validated.
 
 ## Hub regression trigger
 
 The bridge also runs a six-target regression when its own workflow or shared adapter code changes on `main`. This is deliberately path-scoped and does not create a private-repository event bridge. The first regression run was created automatically after the trigger commit, confirming that GitHub parsed the updated workflow. Initial job observation showed two targets running concurrently, matching `max-parallel: 2`.
+
+## Automatic Regression Evidence — run #17
+
+Run #17 was created automatically by the path-scoped `main` push trigger after the workflow change. It executed all six aliases successfully. During execution, only two target jobs ran concurrently, matching `max-parallel: 2`; later aliases entered as slots freed. A post-run scan of all six public job logs found no known private repository names and no private report-body markers. Artifact count was zero. This provides runtime evidence for the same matrix path the three-hour cron schedule will use.
