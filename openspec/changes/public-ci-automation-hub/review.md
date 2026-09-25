@@ -149,3 +149,9 @@ The first corrected dedicated-adapter run exposed a real non-zero ShellCheck sta
 ## repo-05 Adapter Design
 
 The target's primary CI workflow is contract-oriented rather than package-oriented. The public bridge now mirrors the read-only parts of that workflow: Python unit tests, candidate contract validation, architecture JSON/doc validation, and `@fission-ai/openspec@1.8.0 validate --all --strict`. The bridge uses Node 20.19.0 for this alias to match the original workflow. The separate scheduled upstream-watch workflow is intentionally not folded into per-run CI because it is external monitoring/reporting rather than a source-validation gate; it remains a later automation concern.
+
+## repo-06 Adapter Design
+
+The target is a large content repository whose primary validation path is a read-only Vault Health workflow. The bridge now uses a token-scoped sparse Git checkout for the same health-check directories instead of downloading the full repository archive. After checkout, all remotes are removed; local Git metadata is retained only because the target's health inventory uses `git ls-files`. The CI step receives no private-repository token.
+
+The adapter mirrors the manual/read-only validation path: pinned PyYAML installation, health unit tests, managed skill sync, metadata normalizer check, vault health, follow-up radar, stale-fact audit as advisory, Hub and index drift gates, relation-graph structural validation, canonical memory health, and source-link dry-run validation. Schedule-only claim-harvest/backlog reporting is marked SKIP, and write-oriented Claude/Gemini/retry workflows remain outside this recovery change.
