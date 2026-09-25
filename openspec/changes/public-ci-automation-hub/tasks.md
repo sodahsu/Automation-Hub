@@ -76,7 +76,7 @@
 ## 8. Six-Target Rollout
 
 - [x] 8.1 Add all six alias mappings in Secret only, not committed config.
-- [x] 8.2 Validate each alias independently. repo-01, repo-02, repo-03, repo-04, and repo-06 PASS; repo-05 adapter runs correctly and surfaces a real private target contract failure.
+- [x] 8.2 Validate each alias independently. repo-01 through repo-06 all execute successfully through the public bridge.
 - [x] 8.3 Confirm each target's package manager/runtime assumptions. repo-01 through repo-04 use Node 22 paths, repo-05 uses Python + Node 20.19.0 for OpenSpec, and repo-06 uses Python with sparse Git metadata for Vault Health.
 - [x] 8.4 Confirm each target's supported CI stages. Generic Node `check:ci`, repo-04 dedicated governance/architecture adapter, repo-05 candidate-contract adapter, and repo-06 Vault Health adapter are all exercised.
 - [x] 8.5 Confirm content-heavy targets use safe aggregate-only logging; repo-06 published only sanitized stage statuses, with no private report body or known private repository name in the fetched public log.
@@ -172,7 +172,7 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Add read-only adapter for unit tests, candidate contract validation, architecture JSON/doc validation, and OpenSpec strict validation.
 - [x] Align repo-05 Node runtime with original private CI: Node 20.19.0.
 - [x] Keep scheduled `upstream-watch` outside the per-run CI adapter; it is a separate monitoring concern.
-- [x] Run repo-05 through the public bridge: adapter executes correctly and surfaces a real candidate-contract failure in the private target (one overdue active review checkpoint).
+- [x] Run repo-05 through the public bridge: initial run surfaced one genuine expired lifecycle checkpoint; after lifecycle closure in the private repo, rerun attempt #2 PASS.
 
 ## repo-06 adapter readiness
 
@@ -211,3 +211,13 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] claim-harvest / source-backlog correctly SKIP because they are schedule-only.
 - [x] Fetched public log contains no known private repository name hits and no private report body; `Vault Health` appears only in public adapter comments.
 - [x] Artifact count 0.
+
+## repo-05 closure verification
+
+- [x] Archive the expired reference-only candidate instead of extending its review deadline.
+- [x] Remove the stale `reviewBy` field and record the closure rationale in the private candidate decision.
+- [x] Re-run the existing repo-05 public bridge job against current private-repository state.
+- [x] repo-05 rerun attempt #2 PASS.
+- [x] Public log review shows no known private repository name hits.
+- [x] Artifact count 0.
+- [x] Six-target rollout now has no remaining target-side CI debt blocking Phase 1 recovery.
