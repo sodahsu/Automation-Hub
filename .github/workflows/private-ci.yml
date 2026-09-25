@@ -128,7 +128,7 @@ jobs:
           : > "${GITHUB_ENV}"
           : > "${GITHUB_PATH}"
 
-          bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md"
+          bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${{ inputs.target }}"
 
       - name: Publish sanitized summary
         if: ${{ always() }}
