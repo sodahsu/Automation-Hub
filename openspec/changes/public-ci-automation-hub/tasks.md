@@ -173,3 +173,13 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Align repo-05 Node runtime with original private CI: Node 20.19.0.
 - [x] Keep scheduled `upstream-watch` outside the per-run CI adapter; it is a separate monitoring concern.
 - [ ] Run repo-05 through the public bridge and verify all stages plus log/artifact isolation.
+
+## repo-06 adapter readiness
+
+- [x] Inspect the target's read-only Vault Health workflow and separate source-validation gates from write-oriented AI workflows.
+- [x] Add a sparse read-only checkout path for repo-06 matching the target workflow's health-check scope instead of downloading the full large repository.
+- [x] Preserve local Git metadata for `git ls-files` health logic while removing all remotes after checkout.
+- [x] Add read-only Vault Health adapter: Python dependency setup, health unit tests, managed-skill sync, metadata normalizer, vault health, follow-up radar, advisory stale-fact audit, Hub/index drift gates, relation structural gate, canonical memory health, and source-link dry-run check.
+- [x] Keep schedule-only claim harvest/backlog reporting out of manual CI and keep all AI generation/retry workflows out of the hub.
+- [x] Replace YAML-sensitive askpass heredoc with a deterministic `printf`-generated helper.
+- [ ] Run repo-06 through the public bridge and resolve any sparse-checkout/tooling compatibility gaps.
