@@ -175,3 +175,13 @@ The dedicated adapter is functioning correctly. Unit tests passed and the next s
 The public recovery path has now been exercised against all six aliases. Five targets complete successfully end-to-end. The remaining target, repo-05, reaches and executes its dedicated adapter correctly but fails on one genuine lifecycle contract violation in the private repository: an active research candidate whose review checkpoint expired on 2026-09-24. This is target debt, not bridge failure, so the hub preserves the red status instead of weakening or bypassing the private CI rule.
 
 Operationally, Phase 1 has achieved its recovery objective: public GitHub-hosted Actions can read the selected private repositories with a fine-grained read-only token and execute sanitized CI without changing repository visibility or requiring private-repository hosted Actions minutes. Automatic per-push triggering and any private-repository mutation remain outside this change.
+
+## repo-05 Closure Verification
+
+The single genuine lifecycle debt surfaced by the bridge has been resolved in the private target. The expired reference-only research candidate was formally closed as `archived`; the stale review deadline was removed and the candidate decision now records the 2026-09-25 closure rationale. This avoids gaming the gate by extending a date without new evaluation evidence.
+
+The existing repo-05 workflow run was then re-run as attempt #2. Result: PASS. Connector-side review found no known private repository name hits in the public job log and artifact count remained 0.
+
+## Final Phase 1 Rollout State
+
+All six aliases now execute successfully through the public Automation-Hub path. The recovery objective is met: private repositories remain private; the fine-grained token is selected-repository and read-only; public GitHub-hosted runners execute sanitized CI; private source/report bodies are not uploaded as artifacts; and no target repository write access is required for CI recovery.
