@@ -75,10 +75,23 @@ jobs:
           echo "::add-mask::${private_repo}"
 
           rm -rf workspace
-          gh repo clone "${private_repo}" workspace -- --depth 1 --no-tags
 
+          askpass="${RUNNER_TEMP}/automation-hub-git-askpass.sh"
+          cat > "${askpass}" <<'ASKPASS'
+          #!/usr/bin/env bash
+          case "$1" in
+            *Username*) printf '%s\n' "x-access-token" ;;
+            *Password*) printf '%s\n' "${GH_TOKEN}" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "${askpass}"
+
+          GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+            git clone --depth 1 --no-tags "https://github.com/${private_repo}.git" workspace
+
+          rm -f "${askpass}"
           git -C workspace remote set-url origin "https://github.com/REDACTED/REDACTED.git"
-          git -C workspace config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
 
           echo "Private target checkout completed."
 
