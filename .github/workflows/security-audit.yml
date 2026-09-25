@@ -1,0 +1,34 @@
+name: 安全審查
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/common/**'
+      - 'scripts/security/**'
+      - 'SECURITY.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Public CI security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Automation Hub
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: 執行安全審查
+        run: python3 scripts/security/audit.py
