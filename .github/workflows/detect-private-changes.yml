@@ -1,4 +1,4 @@
-# 每 5 分鐘偵測 private repository push activity；只有有變更的 alias 才 dispatch CI。
+# 每 5 分鐘偵測 private repository push activity；只對尚未被 Public CI 涵蓋的新 push dispatch 對應 alias。
 name: Detect Private Repository Changes
 
 on:
