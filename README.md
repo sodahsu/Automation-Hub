@@ -126,3 +126,7 @@ Private-repository CI executes with temporary replacements for `GITHUB_STEP_SUMM
 ## Alias-specific validation
 
 Most Node targets use the repository's existing `check:ci` when available. `repo-04` is an exception: its private CI contains broader governance and architecture gates than its package-level aggregate script. The hub therefore applies an additional read-only adapter for `repo-04` covering ShellCheck, governance, architecture, skill routing/audit, runner integration, spec-governance, spec-truth-gate, and the repository's existing `check:ci`. The adapter creates only a local temporary Git baseline with no remote and no credentials, then removes the workspace during cleanup.
+
+## repo-05 contract adapter
+
+`repo-05` is not a package-manager CI target. The hub mirrors its private candidate-contract workflow with Python unit tests, candidate contract validation, architecture contract validation, and strict OpenSpec validation. For this alias the hub configures Node 20.19.0 to match the original CI workflow. The separate scheduled upstream-watch workflow is not executed as part of normal CI because it is monitoring/reporting rather than a source-validation gate.
