@@ -2,28 +2,34 @@
 
 ## Design decision
 
-The automation is implemented as a scheduled matrix inside the already-validated public bridge rather than as a separate dispatcher workflow. This avoids requiring `actions: write` on the public `GITHUB_TOKEN`, avoids another credential, and keeps all private checkout/CI behavior on the same tested code path.
+最終設計從「固定週期六倉全跑」收斂為「每 5 分鐘 detector + 有變更才 dispatch」。
 
-## Security notes
+Detector 是獨立 workflow，因此沒有變更時產生的 polling run 不會污染 Private CI Bridge 本身的 job history。這讓 detector 可以無狀態地拿 private repo 的 `pushed_at`，與對應 alias 最近一次 CI job 的 `started_at` 比較。
 
-- The schedule knows only aliases `repo-01` through `repo-06`.
-- Real target identities remain inside `PRIVATE_REPOS_JSON`.
-- The existing fine-grained PAT remains read-only and selected-repository scoped.
-- No private repository is modified to obtain automatic triggering.
-- Scheduled private-target runs are intentionally polling-based rather than private-repository push-event-based.
+## Why `started_at` instead of completed_at
 
-## Operational trade-off
+如果 private push 發生在一個舊 CI 已開始之後，使用 `completed_at` 可能把那個較新的 push 誤判為「已測過」。比較 `started_at` 可以避免這個 race：只要 push 晚於 job start，下一輪 detector 仍會再 dispatch。
 
-A commit may wait up to roughly three hours before the next scheduled sweep. This is an explicit reliability/simplicity trade-off while private-repository Actions quota is unavailable. A future event bridge can reduce latency, but it would require additional infrastructure or credentials and is therefore outside this change.
+## Permission model
 
-## Validation status
+- Private repo：沿用既有 fine-grained read-only credential。
+- Public Automation-Hub detector：`actions: write`，只用來觸發既有 `private-ci.yml`。
+- Private CI job：維持 `contents: read` 與原有 sanitized execution boundary。
 
-Implementation is operational. Push regression run #17 exercised the same six-target matrix path used by the schedule and completed successfully. A future cron-triggered run remains to be observed for scheduler-specific evidence, but the matrix, concurrency, adapters, cleanup, and leakage boundaries are already validated.
+沒有新增 private write token，也沒有讓 private target code 取得 Public Hub 的 dispatch credential。
 
-## Hub regression trigger
+## Detection trade-off
 
-The bridge also runs a six-target regression when its own workflow or shared adapter code changes on `main`. This is deliberately path-scoped and does not create a private-repository event bridge. The first regression run was created automatically after the trigger commit, confirming that GitHub parsed the updated workflow. Initial job observation showed two targets running concurrently, matching `max-parallel: 2`.
+使用 repository-level `pushed_at` 是保守策略。其他 branch 的 push 可能造成一次額外 default-branch CI，但這比把 private commit SHA 長期保存到 Public Hub 更符合目前安全邊界。
 
-## Automatic Regression Evidence — run #17
+## Runtime evidence
 
-Run #17 was created automatically by the path-scoped `main` push trigger after the workflow change. It executed all six aliases successfully. During execution, only two target jobs ran concurrently, matching `max-parallel: 2`; later aliases entered as slots freed. A post-run scan of all six public job logs found no known private repository names and no private report-body markers. Artifact count was zero. This provides runtime evidence for the same matrix path the three-hour cron schedule will use.
+- Detector run #1 由 detector workflow 建立 commit 自動觸發。
+- Run #1：success。
+- 當時六倉最近 CI 均已晚於最新 private push，因此 detector 沒有建立新的 workflow_dispatch run。
+- Detector log 中 private repository identifiers 維持 masking。
+- 既有六倉 regression run #17 仍提供 CI adapter 的 6/6 PASS 證據。
+
+## Remaining observation
+
+還需要等待一筆真實 private push，確認 detector 只 dispatch 對應 alias；另外等待第一筆 cron event 以取得 scheduler-specific evidence。
