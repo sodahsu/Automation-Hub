@@ -11,66 +11,66 @@
 
 ## 1. Repository Safety Skeleton
 
-- [ ] 1.1 Add `.gitignore` entries for `workspace/`, `repos/`, `tmp/`, `.env*`, and `*.log`.
-- [ ] 1.2 Add `SECURITY.md` describing public-repo/private-source boundaries.
-- [ ] 1.3 Add README architecture and manual-run instructions without private repository names.
-- [ ] 1.4 Ensure no committed config contains private repository names or clone URLs.
+- [x] 1.1 Add `.gitignore` entries for `workspace/`, `repos/`, `tmp/`, `.env*`, and `*.log`.
+- [x] 1.2 Add `SECURITY.md` describing public-repo/private-source boundaries.
+- [x] 1.3 Add README architecture and manual-run instructions without private repository names.
+- [x] 1.4 Ensure no committed config contains private repository names or clone URLs.
 
 ## 2. Secret Contract
 
-- [ ] 2.1 Document required secret `PRIVATE_REPOS_READ_TOKEN`.
-- [ ] 2.2 Document required secret `PRIVATE_REPOS_JSON`.
-- [ ] 2.3 Require the token to be fine-grained, selected-repository only, Contents read-only + Metadata read.
-- [ ] 2.4 Do not create, print, retrieve, or rotate secret values from repository code.
-- [ ] 2.5 Add a preflight failure if either required secret is unavailable.
+- [x] 2.1 Document required secret `PRIVATE_REPOS_READ_TOKEN`.
+- [x] 2.2 Document required secret `PRIVATE_REPOS_JSON`.
+- [x] 2.3 Require the token to be fine-grained, selected-repository only, Contents read-only + Metadata read.
+- [x] 2.4 Do not create, print, retrieve, or rotate secret values from repository code.
+- [x] 2.5 Add a preflight failure if either required secret is unavailable.
 
 ## 3. Manual Dispatch Workflow
 
-- [ ] 3.1 Create a `workflow_dispatch` workflow accepting target alias and optional ref.
-- [ ] 3.2 Restrict alias values to `repo-01` through `repo-06`.
-- [ ] 3.3 Set workflow permissions to `contents: read`.
-- [ ] 3.4 Add per-target concurrency control.
-- [ ] 3.5 Add a bounded job timeout.
-- [ ] 3.6 Do not add `pull_request_target`.
+- [x] 3.1 Create a `workflow_dispatch` workflow accepting only a public-safe target alias; Phase 1 checks the private target's default branch only.
+- [x] 3.2 Restrict alias values to `repo-01` through `repo-06`.
+- [x] 3.3 Set workflow permissions to `contents: read`.
+- [x] 3.4 Add per-target concurrency control.
+- [x] 3.5 Add a bounded job timeout.
+- [x] 3.6 Do not add `pull_request_target`.
 
 ## 4. Safe Target Resolution / Clone
 
-- [ ] 4.1 Resolve alias from `PRIVATE_REPOS_JSON` at runtime.
-- [ ] 4.2 Fail closed for unknown/empty/malformed targets.
-- [ ] 4.3 Mask the resolved repository identifier before subsequent commands.
-- [ ] 4.4 Clone into `workspace/` using `PRIVATE_REPOS_READ_TOKEN`.
-- [ ] 4.5 Avoid printing clone URL or remote configuration.
-- [ ] 4.6 Use shallow fetch where compatible with target CI.
-- [ ] 4.7 Add `always()` cleanup removing private workspace.
+- [x] 4.1 Resolve alias from `PRIVATE_REPOS_JSON` at runtime.
+- [x] 4.2 Fail closed for unknown/empty/malformed targets.
+- [x] 4.3 Mask the resolved repository identifier before subsequent commands.
+- [x] 4.4 Clone into `workspace/` using `PRIVATE_REPOS_READ_TOKEN`.
+- [x] 4.5 Avoid printing clone URL or remote configuration; redact the checkout's origin URL after clone.
+- [x] 4.6 Use shallow fetch where compatible with target CI.
+- [x] 4.7 Add `always()` cleanup removing private workspace.
 
 ## 5. CI Adapter
 
-- [ ] 5.1 Detect package manager from lockfile without modifying the checkout.
-- [ ] 5.2 Run repository-native dependency install.
-- [ ] 5.3 Run `lint` if present; otherwise mark SKIP.
-- [ ] 5.4 Run `typecheck` if present; otherwise mark SKIP.
-- [ ] 5.5 Run `test` if present; otherwise mark SKIP.
-- [ ] 5.6 Run `build` if present; otherwise mark SKIP.
-- [ ] 5.7 Do not invent missing package scripts.
-- [ ] 5.8 Route non-Node targets to explicit reviewed adapters.
+- [x] 5.1 Detect package manager from lockfile without modifying the checkout.
+- [x] 5.2 Run repository-native dependency install for supported Node package managers.
+- [x] 5.3 Run `lint` if present; otherwise mark SKIP.
+- [x] 5.4 Run `typecheck` if present; otherwise mark SKIP.
+- [x] 5.5 Run `test` if present; otherwise mark SKIP.
+- [x] 5.6 Run `build` if present; otherwise mark SKIP.
+- [x] 5.7 Do not invent missing package scripts.
+- [ ] 5.8 Add explicit reviewed adapters for non-Node targets that need more than clone/adapter-SKIP validation.
 
 ## 6. Public Log / Artifact Gate
 
-- [ ] 6.1 Prohibit `cat`/dump of source files, notes, `.env`, or full environment.
-- [ ] 6.2 Prohibit `set -x` around authentication or target resolution.
-- [ ] 6.3 Disable source/workspace artifact upload.
-- [ ] 6.4 Do not cache `workspace/` or private source.
-- [ ] 6.5 Emit only sanitized stage status and safe aggregate metrics.
-- [ ] 6.6 Review a failed run as well as a successful run for leakage.
+- [x] 6.1 Prohibit `cat`/dump of source files, notes, `.env`, or full environment.
+- [x] 6.2 Prohibit `set -x` around authentication or target resolution.
+- [x] 6.3 Disable source/workspace artifact upload.
+- [x] 6.4 Do not cache `workspace/` or private source.
+- [x] 6.5 Emit only sanitized stage status and safe aggregate metrics.
+- [ ] 6.6 Review a failed real run as well as a successful real run for leakage.
 
 ## 7. One-Target Pilot
 
 - [ ] 7.1 User manually adds `PRIVATE_REPOS_READ_TOKEN`.
 - [ ] 7.2 User manually adds `PRIVATE_REPOS_JSON` with only one pilot alias initially.
-- [ ] 7.3 Run clone-only preflight from public runner.
+- [ ] 7.3 Run public-runner preflight and private clone for the pilot alias.
 - [ ] 7.4 Verify no target source/name/token leakage beyond approved masked metadata.
-- [ ] 7.5 Enable repository-native CI adapter for pilot.
-- [ ] 7.6 Record PASS/FAIL/SKIP evidence.
+- [x] 7.5 Repository-native sanitized CI adapter is implemented and ready for pilot execution.
+- [ ] 7.6 Record PASS/FAIL/SKIP evidence from the pilot.
 - [ ] 7.7 Confirm target repository has no new commits/tags/branches from the run.
 
 ## 8. Six-Target Rollout
@@ -84,20 +84,32 @@
 
 ## 9. Existing Private Workflows
 
-- [ ] 9.1 Leave existing private workflows unchanged during recovery.
-- [ ] 9.2 Document which checks are now duplicated by the hub.
-- [ ] 9.3 Do not delete/disable private workflows without a separate explicit approval.
-- [ ] 9.4 Keep production deployment workflows outside this migration.
+- [x] 9.1 Leave existing private workflows unchanged during recovery.
+- [ ] 9.2 Document which checks are now duplicated by the hub after each pilot target is mapped.
+- [x] 9.3 Do not delete/disable private workflows without a separate explicit approval.
+- [x] 9.4 Keep production deployment workflows outside this migration.
 
 ## 10. Follow-up Automation — Separate Decision
 
 - [ ] 10.1 After manual hub stability, evaluate scheduled polling or event bridge.
 - [ ] 10.2 If automatic triggering is required, create a separate OpenSpec change.
-- [ ] 10.3 Do not add private-repo write access merely to obtain automatic triggers.
+- [x] 10.3 Do not add private-repo write access merely to obtain automatic triggers.
 
 ## 11. Review / Completion
 
-- [ ] 11.1 Independent security review of logs, masking, artifacts, permissions, and cleanup.
-- [ ] 11.2 Verify repository diff contains no secret or private target identifier.
+- [ ] 11.1 Independent security review of real-run logs, masking, artifacts, permissions, and cleanup.
+- [x] 11.2 Verify committed repository content contains no known private target identifier or secret value.
 - [ ] 11.3 Verify public-runner CI works while private-repository hosted Actions quota remains unavailable.
 - [ ] 11.4 Mark Phase 1 complete only after at least one real target passes end-to-end.
+
+## Implementation checkpoint — 2026-09-25
+
+Implemented on `main`:
+
+- `.gitignore`
+- `SECURITY.md`
+- `README.md`
+- `.github/workflows/private-ci.yml`
+- `scripts/common/run-ci.sh`
+
+Current hard blocker is runtime configuration, not repository code: `PRIVATE_REPOS_READ_TOKEN` and `PRIVATE_REPOS_JSON` must be added manually in GitHub Actions Secrets before the first real private-repository run.
