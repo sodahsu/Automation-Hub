@@ -92,10 +92,10 @@ Detector workflow：`.github/workflows/detect-private-changes.yml`
 排程：
 
 ~~~text
-2-57/5 * * * *
+*/5 * * * *
 ~~~
 
-也就是每小時的 02、07、12、17、22、27、32、37、42、47、52、57 分執行，避開整點常見的排程高峰。
+也就是每 5 分鐘執行一次。
 
 Detector 不會固定重跑六倉，而是：
 
