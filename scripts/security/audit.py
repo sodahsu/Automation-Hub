@@ -23,6 +23,16 @@ for path, text in workflow_text.items():
     require("actions/cache" not in text, f"{path.name}: 禁止 source/workspace cache")
     require("persist-credentials: true" not in text, f"{path.name}: persist-credentials 不得為 true")
 
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("uses: actions/"):
+            continue
+        ref = stripped.split("@", 1)[1].split()[0] if "@" in stripped else ""
+        require(
+            len(ref) == 40 and all(ch in "0123456789abcdef" for ch in ref.lower()),
+            f"{path.name}: GitHub Actions 必須固定到 immutable commit SHA"
+        )
+
 private_ci = PRIVATE_CI.read_text(encoding="utf-8")
 detector = DETECTOR.read_text(encoding="utf-8")
 run_ci = RUN_CI.read_text(encoding="utf-8")
@@ -69,3 +79,4 @@ print("- detector actions permission scope: PASS")
 print("- artifact/cache prohibitions: PASS")
 print("- command-file isolation / cleanup: PASS")
 print("- common token-prefix scan: PASS")
+print("- third-party GitHub Actions immutable SHA pinning: PASS")
