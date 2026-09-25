@@ -2,7 +2,7 @@ name: 排程探針
 
 on:
   schedule:
-    - cron: '4-59/5 * * * *'
+    - cron: '3-58/5 * * * *'
   workflow_dispatch:
 
 permissions:
