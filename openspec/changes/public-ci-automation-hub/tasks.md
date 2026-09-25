@@ -152,3 +152,9 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Detect `run_stage()` exit-code propagation bug where a failing command could be reported as `FAIL (exit 0)` and the overall job could remain green.
 - [x] Fix `run_stage()` to capture the command exit code inside the `else` branch and propagate the real non-zero status.
 - [ ] Re-run repo-04 to determine the true ShellCheck result under the corrected failure semantics.
+
+## repo-04 ShellCheck semantic alignment
+
+- [x] Confirm the original private CI runs ShellCheck with `severity: error` and excludes SC1090 / SC1091.
+- [x] Update the public bridge repo-04 adapter to use the same ShellCheck severity semantics.
+- [ ] Re-run repo-04 after severity alignment and verify whether any true ShellCheck errors remain.
