@@ -49,14 +49,14 @@ run_stage() {
     add_row "$stage" "PASS"
     rm -f "$log_file"
     return 0
+  else
+    local rc=$?
+    add_row "$stage" "FAIL (exit ${rc})"
+    echo "::error title=Private CI stage failed::${stage} failed with exit code ${rc}. Private command output was intentionally withheld from this public log."
+    rm -f "$log_file"
+    overall_rc=$rc
+    return "$rc"
   fi
-
-  local rc=$?
-  add_row "$stage" "FAIL (exit ${rc})"
-  echo "::error title=Private CI stage failed::${stage} failed with exit code ${rc}. Private command output was intentionally withheld from this public log."
-  rm -f "$log_file"
-  overall_rc=$rc
-  return "$rc"
 }
 
 has_script() {
