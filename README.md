@@ -130,3 +130,7 @@ Most Node targets use the repository's existing `check:ci` when available. `repo
 ## repo-05 contract adapter
 
 `repo-05` is not a package-manager CI target. The hub mirrors its private candidate-contract workflow with Python unit tests, candidate contract validation, architecture contract validation, and strict OpenSpec validation. For this alias the hub configures Node 20.19.0 to match the original CI workflow. The separate scheduled upstream-watch workflow is not executed as part of normal CI because it is monitoring/reporting rather than a source-validation gate.
+
+## repo-06 Vault Health adapter
+
+`repo-06` is a large content repository. The hub uses a sparse read-only Git checkout matching its Vault Health scope rather than downloading the full repository archive. The checkout retains local Git metadata for read-only health inventory logic but removes every remote before CI begins. The adapter runs only structural/read-only Vault Health gates and suppresses all target-generated report bodies from public logs. Schedule-only reports and AI generation/retry workflows are intentionally excluded.
