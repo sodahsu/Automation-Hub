@@ -54,7 +54,7 @@
 - [x] 5.7 不自行發明缺少的 package script。
 - [x] 5.8 對需要額外驗證的 non-Node targets 建立經 review 的明確 adapter；repo-05 / repo-06 已完成。
 
-## 6. Public Log / Artifact Gate
+## 6. 公開 Log / Artifact Gate
 
 - [x] 6.1 禁止 `cat` / dump source file、note、`.env` 或完整 environment。
 - [x] 6.2 Authentication / target resolution 階段禁止 `set -x`。
@@ -95,7 +95,7 @@
 - [x] 10.2 Automatic triggering 已在獨立 change `automatic-private-ci-sweep` 實作。
 - [x] 10.3 不為了 automatic trigger 而增加 private-repo write access。
 
-## 11. Review / 完成條件
+## 11. 審查 / 完成條件
 
 - [ ] 11.1 進行獨立 security review：real-run logs、masking、Artifacts、permissions、cleanup。
 - [x] 11.2 已驗證 committed repository content 不包含 known private target identifier 或 Secret value。
@@ -123,16 +123,16 @@ Runtime configuration 已完成，並由六倉逐步 rollout 驗證。
 
 ## Rollout 檢查點 — repo-02 run #6
 
-- [x] repo-02 read-only archive checkout PASS。
-- [x] Node 22 / npm install PASS。
-- [x] Canonical `check:ci` PASS。
+- [x] repo-02 唯讀 archive checkout PASS。
+- [x] Node 22 / npm 安裝 PASS。
+- [x] Canonical `check:ci` 驗證 PASS。
 - [x] 只有 sanitized summary，沒有 private-generated Job Summary。
 - [x] Fetched job log 無 known private repository name hit。
 - [x] Artifact count：0。
 
 ## Rollout 檢查點 — repo-03 run #7
 
-- [x] repo-03 read-only archive checkout PASS。
+- [x] repo-03 唯讀 archive checkout PASS。
 - [x] Node 22 / npm install PASS。
 - [x] Canonical `check:ci` PASS。
 - [x] 只有 sanitized summary，沒有 private-generated Job Summary。
