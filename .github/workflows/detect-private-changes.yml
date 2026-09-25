@@ -4,7 +4,7 @@ name: Detect Private Repository Changes
 
 on:
   schedule:
-    - cron: '1-56/5 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
   push:
     branches:
