@@ -45,3 +45,10 @@
 - 歸檔前不得為了「看起來完成」而把沒有證據的 task 勾成完成。
 - 若仍有 runtime observation、security review、strict validation 或其他 acceptance item 未完成，change 必須繼續留在 active 區。
 - 歸檔後保留 proposal、design、tasks、review、spec 與驗證紀錄，作為歷史決策證據。
+
+
+## OpenSpec 自動驗證
+
+- `.github/workflows/validate-openspec.yml` 會在 `openspec/**` 變更時自動執行。
+- 驗證命令：`npx --yes @fission-ai/openspec@1.8.0 validate --all --strict`。
+- 驗證 workflow 只需要 `contents: read`，不持有 private repository credential。
