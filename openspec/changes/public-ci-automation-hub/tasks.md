@@ -76,9 +76,9 @@
 ## 8. Six-Target Rollout
 
 - [x] 8.1 Add all six alias mappings in Secret only, not committed config.
-- [ ] 8.2 Validate each alias independently. repo-01, repo-02, and repo-03 are PASS; repo-04 generic path PASS but requires dedicated-adapter revalidation.
-- [ ] 8.3 Confirm each target's package manager/runtime assumptions. repo-01, repo-02, and repo-03 are confirmed Node 22 + npm.
-- [ ] 8.4 Confirm each target's supported CI stages. repo-01, repo-02, and repo-03 are confirmed canonical `check:ci`.
+- [ ] 8.2 Validate each alias independently. repo-01 through repo-04 are PASS; repo-05 adapter is ready for validation.
+- [ ] 8.3 Confirm each target's package manager/runtime assumptions. repo-01 through repo-04 are Node 22 + npm; repo-05 uses Python 3.x + Node 20.19.0 for OpenSpec validation.
+- [ ] 8.4 Confirm each target's supported CI stages. repo-01 through repo-03 use canonical `check:ci`; repo-04 uses the dedicated governance/architecture/routing/spec adapter; repo-05 candidate-contract adapter is ready.
 - [ ] 8.5 Confirm content-heavy targets use safe aggregate-only logging.
 - [ ] 8.6 Run a six-target manual health sweep and capture sanitized summary.
 
@@ -145,16 +145,31 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Sanitized log review PASS; zero artifacts; no known private repository name hits.
 - [x] Compare against the target's original private CI and identify coverage gap: package-level `check:ci` alone does not represent ShellCheck, governance, architecture, skill routing/audit, and spec-governance gates.
 - [x] Add a dedicated public-safe `repo-04` adapter that mirrors the read-only validation gates without deployment, PR classification, or artifact upload.
-- [ ] Re-run repo-04 using the dedicated adapter and resolve any runner/tooling compatibility gaps.
+- [x] Re-run repo-04 using the dedicated adapter and resolve runner/tooling compatibility gaps; all dedicated gates PASS.
 
 ## Runner correctness fix — after repo-04 dedicated-adapter run
 
 - [x] Detect `run_stage()` exit-code propagation bug where a failing command could be reported as `FAIL (exit 0)` and the overall job could remain green.
 - [x] Fix `run_stage()` to capture the command exit code inside the `else` branch and propagate the real non-zero status.
-- [ ] Re-run repo-04 to determine the true ShellCheck result under the corrected failure semantics.
+- [x] Re-run repo-04 under corrected failure semantics; ShellCheck behavior is now trustworthy.
 
 ## repo-04 ShellCheck semantic alignment
 
 - [x] Confirm the original private CI runs ShellCheck with `severity: error` and excludes SC1090 / SC1091.
 - [x] Update the public bridge repo-04 adapter to use the same ShellCheck severity semantics.
-- [ ] Re-run repo-04 after severity alignment and verify whether any true ShellCheck errors remain.
+- [x] Re-run repo-04 after severity alignment; shellcheck-scripts and shellcheck-skills both PASS.
+
+## Rollout checkpoint — repo-04 final dedicated-adapter run
+
+- [x] All dedicated repo-04 gates PASS: ShellCheck, governance, architecture tests/contract/drift, skill resolver, registry, routing audit/matrix, runner integration, skill audit, shared-path audit, spec-governance, spec-truth-gate, and `check:ci`.
+- [x] Fetched public job log contains no known private repository name hits.
+- [x] Artifact count 0.
+- [x] No private-generated Job Summary content.
+
+## repo-05 adapter readiness
+
+- [x] Inspect original `candidate-contract.yml`.
+- [x] Add read-only adapter for unit tests, candidate contract validation, architecture JSON/doc validation, and OpenSpec strict validation.
+- [x] Align repo-05 Node runtime with original private CI: Node 20.19.0.
+- [x] Keep scheduled `upstream-watch` outside the per-run CI adapter; it is a separate monitoring concern.
+- [ ] Run repo-05 through the public bridge and verify all stages plus log/artifact isolation.
