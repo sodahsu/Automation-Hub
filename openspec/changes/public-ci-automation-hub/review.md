@@ -1,5 +1,5 @@
 ---
-title: "Public CI Automation Hub Review"
+title: "Public CI Automation Hub 審查"
 tags:
   - OpenSpec/Review
   - CI/GitHubActions
@@ -10,182 +10,317 @@ status: active
 source: ai-assisted
 ---
 
-# Public CI Automation Hub Review
+# Public CI Automation Hub 審查
 
-## Pre-implementation Findings
+## 實作前發現
 
-- The public `Automation-Hub` repository exists and is the intended orchestration location.
-- The current operational problem is exhausted private-repository GitHub-hosted Actions quota, so existing private CI cannot be treated as available capacity.
-- Six private repositories are in scope, but their real names are deliberately not recorded in this public repository.
-- Phase 1 can restore CI without changing repository visibility and without writing to target repositories.
-- The public/private boundary makes log hygiene, artifact policy, cache policy, and metadata masking first-class requirements rather than optional hardening.
-- A manual `workflow_dispatch` path is sufficient for emergency recovery and avoids requiring a private-repository Action to trigger the public hub.
-- Automatic per-push triggering is not solved by this Phase 1 design and is intentionally deferred.
+- Public `Automation-Hub` repository 已存在，適合作為 orchestration location。
+- 當時的核心問題是 private-repository GitHub-hosted Actions quota 已用盡，因此原 private CI 不能再當作可用 capacity。
+- 六個 private repositories 都在範圍內，但真實名稱刻意不寫入 Public repo。
+- Phase 1 可以在不改 repository visibility、也不寫入 target repository 的前提下恢復 CI。
+- Public / Private 邊界使 log hygiene、Artifact policy、cache policy 與 metadata masking 成為必要 requirement。
+- Manual `workflow_dispatch` 足以作為緊急 recovery path，而且不需要 private-repository Action 反向觸發 Public Hub。
+- Automatic triggering 在 Phase 1 初始設計中刻意延後，後續另案處理。
 
-## Implementation Checkpoint — 2026-09-25
+## 實作檢查點 — 2026-09-25
 
-Implemented on `main`:
+已在 `main` 實作：
 
-- `.gitignore` blocks private checkout, environment, log, and report paths.
-- `SECURITY.md` defines the public/private security boundary and incident response.
-- `README.md` documents the two required Secrets and manual-run flow without revealing target identities.
-- `.github/workflows/private-ci.yml` provides manual alias selection, read-only permissions, secret preflight, masked runtime target resolution, shallow private clone, origin redaction, Node runtime setup, sanitized CI execution, summary output, timeout, concurrency, and always-run cleanup.
-- `scripts/common/run-ci.sh` detects supported Node package managers and runs existing install/lint/typecheck/test/build stages while suppressing private command output from public logs.
-- Public repository search found no occurrences of the known private target repository names checked during this implementation pass.
-- Official GitHub Actions are pinned to current major lines used by this implementation (`actions/checkout@v7`, `actions/setup-node@v7`); automatic package-manager caching is explicitly disabled.
-
-Not yet executed:
-
-- GitHub Actions Secrets are configured and working with selected-repository read-only access.
-- repo-01 and repo-02 have completed real private read-only checkouts from the public runner.
-- Successful and failed runs have been reviewed for leakage; current sanitized-path checks show no known private repository name hits and zero artifacts.
-- No non-Node target adapter beyond safe SKIP behavior has been approved.
+- `.gitignore`：阻擋 private checkout、environment、log 與 report path。
+- `SECURITY.md`：定義 Public / Private security boundary 與 incident response。
+- `README.md`：說明必要 Secrets、手動流程與後續自動化，不揭露 target identity。
+- `.github/workflows/private-ci.yml`：提供 alias selection、read-only permissions、Secret preflight、runtime target masking、private checkout、runtime setup、sanitized CI、summary、timeout、concurrency、always-run cleanup。
+- `scripts/common/run-ci.sh`：偵測 Node package manager，執行 repository-native CI，並把 private command output 留在 runner 暫存檔。
+- Public repository search 沒有找到已知 private target repository names。
+- GitHub Actions 使用目前採用的 major version（`actions/checkout@v7`、`actions/setup-node@v7`），package-manager automatic cache 明確關閉。
 
 ## Readiness Sign-off
 
-- [x] Problem and recovery objective are defined.
-- [x] Public repository / private target boundary is defined.
-- [x] Read-only first principle is defined.
-- [x] Private repository identities are excluded from committed configuration.
-- [x] Production deploy is excluded.
-- [x] Private-repository mutation is excluded.
-- [x] Existing private workflows are preserved.
-- [x] Rollback requires no private source change.
-- [x] Public workflow and sanitized CI adapter are implemented.
-- [x] Required GitHub Secrets are configured.
-- [x] Public-runner read-only checkout has been executed successfully.
-- [x] Log-leakage validation has been executed on failed and successful runs.
-- [x] Node/npm canonical `check:ci` adapter has passed end-to-end.
-- [ ] Automatic triggering has not been designed and is not authorized by this change.
+- [x] 問題與 recovery objective 已定義。
+- [x] Public repository / private target boundary 已定義。
+- [x] Read-only first 原則已定義。
+- [x] Private repository identity 排除於 committed config。
+- [x] Production deploy 排除。
+- [x] Private-repository mutation 排除。
+- [x] 既有 private workflow 保留。
+- [x] Rollback 不需要 private source change。
+- [x] Public workflow 與 sanitized CI adapter 已實作。
+- [x] 必要 GitHub Secrets 已設定。
+- [x] Public-runner read-only checkout 已實跑成功。
+- [x] 成功與失敗 runs 均完成 log leakage review。
+- [x] Node/npm canonical `check:ci` 已 end-to-end PASS。
+- [x] 六倉 alias 均完成實跑。
+- [x] Automatic triggering 已在獨立 `automatic-private-ci-sweep` change 實作。
 
 ## Security Review Gate
 
-Before declaring implementation ready for six-target use, independently verify:
+在宣布六倉可用前，需確認：
 
-1. no private repository name is committed;
-2. target identifiers are masked before use;
-3. token values are never printed;
-4. no private checkout is uploaded as artifact;
-5. workspace/source directories are not cached;
-6. failure logs do not dump source content;
-7. cleanup runs on success and failure;
-8. token permissions remain read-only and selected-repository scoped;
-9. workflow cannot push to a target repository;
-10. `pull_request_target` is not used with private-repository credentials.
+1. 沒有 private repository 名稱被 commit。
+2. Target identifier 在使用前已 masking。
+3. Token value 永不輸出。
+4. Private checkout 不會上傳為 Artifact。
+5. Workspace / source directory 不進 cache。
+6. Failure log 不 dump source content。
+7. Success / failure 都會執行 cleanup。
+8. Token permission 維持 read-only、selected-repository scoped。
+9. Workflow 無法 push 到 target repository。
+10. 不使用帶 private credential 的 `pull_request_target`。
 
-## Conclusion
+## Pilot 證據 — repo-01 run #4
 
-This change is now **operational for the validated Node/npm targets and continuing through staged six-target rollout**.
+- 結果：PASS。
+- Public runner 完成 read-only archive checkout、Node setup、dependency install 與 canonical `check:ci`。
+- Sanitized bridge：`package-json` PASS、npm PASS、install PASS、`check:ci` PASS。
+- Hardening 前 target 自己曾在 Job Summary 暴露測試 aggregate：15 files / 135 tests passed。
+- Connector-side log review 無 known private repository name hit。
+- Artifact count：0。
+- 此 run 同時揭露一個邊界：private test tooling 可直接寫入 Public `GITHUB_STEP_SUMMARY`。
 
-The repository-side Phase 1 implementation is active. repo-01 and repo-02 have passed end-to-end with read-only archive checkout, sanitized CI execution, command-file isolation, and zero artifacts. Remaining aliases should be validated one at a time before Phase 1 sign-off.
+## 安全強化驗證 — repo-01 run #5
 
-This review does not authorize production deployment migration, write access to any private repository, public disclosure of target identities, or deletion/disablement of existing private workflows.
+- 結果：PASS。
+- Private target 完成 read-only checkout、Node setup、install、canonical `check:ci`。
+- Public Job Summary 只剩 Hub 自己產生的 sanitized target / stage table。
+- 先前 private-generated Vitest Test Report 不再出現。
+- Connector-side log review 無 known private repository name hit。
+- Artifact count：0。
+- `GITHUB_STEP_SUMMARY`、`GITHUB_OUTPUT`、`GITHUB_ENV`、`GITHUB_PATH` command-file isolation 完成實跑驗證。
 
-## Pilot Evidence — repo-01 run #4
+## Rollout 證據 — repo-02 run #6
 
-- Result: PASS.
-- Public runner completed the read-only archive checkout, Node setup, dependency install, and canonical `check:ci` path.
-- Sanitized bridge result: `package-json` PASS, package manager npm PASS, install PASS, `check:ci` PASS.
-- Test evidence exposed by the target before hardening: 15 test files / 135 tests passed.
-- Connector-side log review found no occurrences of the known private repository names checked for this implementation pass.
-- Artifact count: 0.
-- The successful run revealed one additional boundary: private test tooling could append its own report to `GITHUB_STEP_SUMMARY`. The workflow has since been hardened so child CI receives isolated temporary command-file paths for `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH`. This hardening still requires one real-run verification before Phase 1 sign-off.
+- 結果：PASS。
+- Read-only archive checkout PASS。
+- Node 22 / npm install PASS。
+- Canonical `check:ci` PASS。
+- Public Job Summary 只含 Hub sanitized table。
+- Log 無 known private repository name hit。
+- Artifact count：0。
 
-## Security Hardening Verification — repo-01 run #5
+## Rollout 證據 — repo-03 run #7
 
-- Result: PASS.
-- The private target completed read-only checkout, Node setup, install, and canonical `check:ci` successfully.
-- Public Job Summary contained only the hub-generated sanitized target/stage table.
-- The prior private-generated Vitest Test Report did not appear.
-- Connector-side log review found no known private repository name hits.
-- Artifact count remained 0.
-- `GITHUB_STEP_SUMMARY`, `GITHUB_OUTPUT`, `GITHUB_ENV`, and `GITHUB_PATH` isolation is therefore verified for the pilot path.
+- 結果：PASS。
+- Read-only archive checkout PASS。
+- Node 22 / npm install PASS。
+- Canonical `check:ci` PASS。
+- Public Job Summary 只含 Hub sanitized table。
+- Log 無 known private repository name hit。
+- Artifact count：0。
 
-## Rollout Evidence — repo-02 run #6
+## Coverage Review — repo-04
 
-- Result: PASS.
-- Read-only archive checkout completed successfully.
-- Node 22 / npm install completed successfully.
-- Canonical `check:ci` completed successfully.
-- Public Job Summary contained only the hub-generated sanitized target/stage table.
-- Connector-side log review found no known private repository name hits.
-- Artifact count: 0.
+Generic bridge 首次雖然 PASS，但與原 private CI 比較後發現 package-level `check:ci` coverage 不足。
 
-## Rollout Evidence — repo-03 run #7
+原 private CI 還包含：
 
-- Result: PASS.
-- Read-only archive checkout completed successfully.
-- Node 22 / npm install completed successfully.
-- Canonical `check:ci` completed successfully.
-- Public Job Summary contained only the hub-generated sanitized target/stage table.
-- Connector-side log review found no known private repository name hits.
-- Artifact count: 0.
+- ShellCheck
+- governance
+- architecture contract / drift
+- skill resolver
+- routing / integration audit
+- skill audit
+- spec-governance
+- spec-truth-gate
 
-## Coverage Review — repo-04 run #8
+因此新增 dedicated `repo-04` adapter，鏡像 read-only validation gates；event classification、deployment / mutation 與 failure Artifact upload 仍刻意排除。
 
-- Generic bridge result: PASS.
-- Security boundary: PASS (no known private repository name hits in fetched log; artifact count 0; no private Job Summary injection).
-- Coverage finding: the target's original private CI contains substantially more validation than its package-level `check:ci`, including ShellCheck, governance, architecture contracts/drift, skill resolver/routing/integration audits, skill audit, spec-governance tests, and spec-truth-gate.
-- Action: a dedicated `repo-04` adapter has been added to mirror those read-only gates. Event classification, deployment/mutation, and failure-artifact upload remain intentionally excluded from the public bridge.
-- Status: requires a fresh repo-04 run before this alias can be marked equivalent enough for recovery use.
+## Runner correctness 發現與修正
 
-## Runner Correctness Finding — repo-04 dedicated-adapter run
+Dedicated adapter 首次執行發現 `run_stage()` 有 exit-code propagation bug：
 
-The dedicated adapter exposed a harness bug in `run_stage()`: failure status was read after the `if` statement rather than inside the failing branch. In Bash this could yield status 0, producing contradictory `FAIL (exit 0)` rows and allowing the job to finish green. The helper has been corrected to capture `$?` immediately in the `else` branch and return the real non-zero code. The repo-04 adapter must be re-run before its ShellCheck state is considered valid.
+- failing command 可能被顯示為 `FAIL (exit 0)`
+- overall job 可能錯誤維持 green
 
-## repo-04 ShellCheck Alignment
+修正方式：
 
-The first corrected dedicated-adapter run exposed a real non-zero ShellCheck status, but comparison with the original private CI showed a semantic mismatch: the private workflow configures ShellCheck with `severity: error`, while the bridge initially used ShellCheck's default severity handling. The bridge has been corrected to use `--severity=error` and the same SC1090 / SC1091 exclusions. A new repo-04 run is required before concluding that the private repository itself has ShellCheck errors.
+- 在 `else` branch 立即 capture `$?`
+- propagate 真正 non-zero code
 
-## repo-04 Final Dedicated-Adapter Verification
+修正後重新執行，failure semantics 恢復可信。
 
-- Result: PASS.
-- All mirrored read-only gates passed: ShellCheck scripts/skills, governance, architecture unit/contract/drift checks, skill resolver, registry, routing audit/matrix, runner integration, skill audit, shared-path audit, spec-governance tests, spec-truth-gate, and canonical `check:ci`.
-- Connector-side log review found no known private repository name hits.
-- Artifact count: 0.
-- No private-generated Job Summary content was observed.
-- repo-04 is now sufficiently covered for Phase 1 CI recovery.
+## repo-04 ShellCheck 語意對齊
 
-## repo-05 Adapter Design
+比較原 private CI 後確認：
 
-The target's primary CI workflow is contract-oriented rather than package-oriented. The public bridge now mirrors the read-only parts of that workflow: Python unit tests, candidate contract validation, architecture JSON/doc validation, and `@fission-ai/openspec@1.8.0 validate --all --strict`. The bridge uses Node 20.19.0 for this alias to match the original workflow. The separate scheduled upstream-watch workflow is intentionally not folded into per-run CI because it is external monitoring/reporting rather than a source-validation gate; it remains a later automation concern.
+- ShellCheck 使用 `severity: error`
+- 排除 SC1090 / SC1091
 
-## repo-06 Adapter Design
+Public bridge adapter 已改成相同 semantics。
 
-The target is a large content repository whose primary validation path is a read-only Vault Health workflow. The bridge now uses a token-scoped sparse Git checkout for the same health-check directories instead of downloading the full repository archive. After checkout, all remotes are removed; local Git metadata is retained only because the target's health inventory uses `git ls-files`. The CI step receives no private-repository token.
+最終結果：
 
-The adapter mirrors the manual/read-only validation path: pinned PyYAML installation, health unit tests, managed skill sync, metadata normalizer check, vault health, follow-up radar, stale-fact audit as advisory, Hub and index drift gates, relation-graph structural validation, canonical memory health, and source-link dry-run validation. Schedule-only claim-harvest/backlog reporting is marked SKIP, and write-oriented Claude/Gemini/retry workflows remain outside this recovery change.
+- shellcheck-scripts PASS
+- shellcheck-skills PASS
 
-## repo-05 Real Target Result
+## repo-04 最終 Dedicated Adapter
 
-The dedicated adapter is functioning correctly. Unit tests passed and the next stage, candidate-contract validation, failed on an actual private-repository lifecycle rule rather than an Automation-Hub defect. The private catalog contains exactly one active candidate whose review checkpoint expired on 2026-09-24 while its status remains `researching`; the candidate's decision record explicitly identifies that date as its review checkpoint. The hub intentionally leaves this red: silently converting the gate to advisory or auto-extending the date would no longer match the original private CI semantics. No private-repository content was modified.
+最終所有 mirrored read-only gates PASS：
 
-## repo-06 Final Validation
+- ShellCheck scripts / skills
+- governance
+- architecture unit / contract / drift
+- skill resolver
+- registry
+- routing audit / matrix
+- runner integration
+- skill audit
+- shared-path audit
+- spec-governance
+- spec-truth-gate
+- canonical `check:ci`
 
-- Result: PASS.
-- The large content target completed sparse read-only checkout and all intended manual Vault Health gates successfully.
-- The selected-repository PAT was used only for clone and lazy sparse materialization; all remotes were removed before CI execution.
-- All structural/read-only stages passed: Python dependency setup, health unit tests, skill sync, metadata normalizer, vault health, follow-up radar, stale-fact audit, Hub drift, index drift, relation health, canonical memory health, and source-link dry-run validation.
-- Schedule-only claim-harvest and source-backlog stages were correctly skipped.
-- Public log review found no known private repository name hits and no private report body. The phrase `Vault Health` appears only in public orchestration comments.
-- Artifact count: 0.
+安全結果：
 
-## Six-target Rollout Status
+- known private repository name hits：0
+- Artifact count：0
+- private-generated Job Summary：0
 
-The public recovery path has now been exercised against all six aliases. Five targets complete successfully end-to-end. The remaining target, repo-05, reaches and executes its dedicated adapter correctly but fails on one genuine lifecycle contract violation in the private repository: an active research candidate whose review checkpoint expired on 2026-09-24. This is target debt, not bridge failure, so the hub preserves the red status instead of weakening or bypassing the private CI rule.
+repo-04 已足夠覆蓋 Phase 1 CI recovery。
 
-Operationally, Phase 1 has achieved its recovery objective: public GitHub-hosted Actions can read the selected private repositories with a fine-grained read-only token and execute sanitized CI without changing repository visibility or requiring private-repository hosted Actions minutes. Automatic per-push triggering and any private-repository mutation remain outside this change.
+## repo-05 Adapter 設計
 
-## repo-05 Closure Verification
+repo-05 的主要 CI 是 contract-oriented，而不是 package-oriented。
 
-The single genuine lifecycle debt surfaced by the bridge has been resolved in the private target. The expired reference-only research candidate was formally closed as `archived`; the stale review deadline was removed and the candidate decision now records the 2026-09-25 closure rationale. This avoids gaming the gate by extending a date without new evaluation evidence.
+Public bridge 鏡像其 read-only workflow：
 
-The existing repo-05 workflow run was then re-run as attempt #2. Result: PASS. Connector-side review found no known private repository name hits in the public job log and artifact count remained 0.
+- Python unit tests
+- candidate contract validation
+- architecture JSON / doc validation
+- `@fission-ai/openspec@1.8.0 validate --all --strict`
 
-## Final Phase 1 Rollout State
+此 alias 使用 Node 20.19.0，與原 private CI 對齊。
 
-All six aliases now execute successfully through the public Automation-Hub path. The recovery objective is met: private repositories remain private; the fine-grained token is selected-repository and read-only; public GitHub-hosted runners execute sanitized CI; private source/report bodies are not uploaded as artifacts; and no target repository write access is required for CI recovery.
+Scheduled upstream-watch 不納入 per-run CI，因為它屬於 external monitoring / reporting，而不是 source-validation gate。
 
-## Follow-up Automation Handoff
+## repo-05 真實 Target Debt 與結案
 
-The deferred automatic-triggering decision has now been implemented in the separate `automatic-private-ci-sweep` OpenSpec change. The selected design is a public three-hour scheduled sweep using the same validated bridge, plus a path-scoped `main` push regression for hub workflow/adapter changes. It adds no private-repository write permission and no second credential. Automatic regression run #17 completed all six aliases successfully with zero known private-name hits, zero private report markers, and zero artifacts.
+Dedicated adapter 首次實跑時：
+
+- unit tests PASS
+- candidate-contract 正確抓到一筆真實 lifecycle violation
+- 一個 active candidate 的 review checkpoint 已於 2026-09-24 到期，但狀態仍是 `researching`
+
+Hub 沒有把 gate 改成 advisory，也沒有自動延後 deadline。
+
+後續 private repo 正式把該 reference-only candidate 收斂為 `archived`，移除 stale `reviewBy`，並在 decision 記錄 2026-09-25 closure rationale。
+
+Rerun attempt #2：
+
+- repo-05 PASS
+- Public log 無 known private repository name hit
+- Artifact count：0
+
+這證明 Hub 抓到的是 target 真實 debt，而不是 bridge defect。
+
+## repo-06 Adapter 設計
+
+repo-06 是大型 content repository，主要 validation path 為 read-only Vault Health workflow。
+
+Bridge 採用：
+
+- token-scoped sparse Git checkout
+- 只 checkout health-check 所需範圍
+- checkout 後移除所有 remotes
+- 保留 local Git metadata，僅供 `git ls-files` 類 read-only health inventory 使用
+- CI step 不再持有 private-repository token
+
+Adapter 鏡像：
+
+- pinned PyYAML install
+- health unit tests
+- managed skill sync
+- metadata normalizer
+- vault health
+- follow-up radar
+- stale-fact audit（advisory）
+- Hub drift
+- index drift
+- relation graph structural validation
+- canonical memory health
+- source-link dry-run validation
+
+Schedule-only claim-harvest / backlog report 標記 `SKIP`；write-oriented Claude / Gemini / retry workflow 不納入 Hub。
+
+## repo-06 最終驗證
+
+結果：PASS。
+
+所有 read-only stages 都通過：
+
+- Python dependency setup
+- health unit tests
+- skill sync
+- metadata normalizer
+- vault health
+- follow-up radar
+- stale-fact audit
+- Hub drift
+- index drift
+- relation health
+- canonical memory health
+- source-link dry-run
+
+安全結果：
+
+- selected-repository PAT 只在 clone / lazy sparse materialization 使用
+- CI 前已移除所有 remotes
+- Public log 無 known private repository name hit
+- 無 private report body
+- Artifact count：0
+
+## 六倉 Rollout 最終狀態
+
+Public recovery path 已對六個 alias 全部實跑。
+
+最終：
+
+- repo-01：PASS
+- repo-02：PASS
+- repo-03：PASS
+- repo-04：PASS
+- repo-05：PASS
+- repo-06：PASS
+
+Phase 1 recovery objective 已達成：
+
+- Private repositories 維持 Private。
+- Fine-grained token 維持 selected-repository read-only。
+- Public GitHub-hosted runners 可執行 sanitized CI。
+- Private source / report body 不上傳為 Artifact。
+- CI recovery 不需要 target repository write access。
+
+## 後續自動化銜接
+
+原本延後的 automatic-triggering decision 已在獨立 `automatic-private-ci-sweep` OpenSpec change 實作。
+
+目前實際設計不是固定每 3 小時全掃，而是：
+
+- 每 5 分鐘執行 detector。
+- 讀取 private repository `pushed_at`。
+- 與對應 alias 最近一次 CI job `started_at` 比較。
+- 無新 push → `SKIP`。
+- 有新 push → 只 dispatch 該 alias。
+- CI 正在跑 → `WAIT`，下一輪再判斷。
+
+Private repo 仍維持 read-only，不新增 private write token。
+
+另外，Hub 自己的 workflow / shared adapter code 在 `main` 變更時，會自動執行六倉 regression。
+
+Automatic regression run #17：
+
+- 六個 aliases 全部 PASS。
+- known private-name hits：0。
+- private report markers：0。
+- Artifact count：0。
+
+Detector run #1：
+
+- success。
+- 當時六倉無新的 private push，因此沒有多 dispatch CI。
+- Private repository identifier 維持 masking。
+
+## 結論
+
+Phase 1 已完成其核心目的：在不公開 private source、不增加 target write access、不改 repository visibility 的前提下，恢復六倉 CI。
+
+目前架構可持續使用，且已具備每 5 分鐘 change-aware polling；剩餘工作屬於持續觀察與獨立 security review，而不是 Phase 1 功能缺口。
