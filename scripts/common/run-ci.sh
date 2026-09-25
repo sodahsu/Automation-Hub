@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 workspace="${1:-workspace}"
 summary_file="${2:-${RUNNER_TEMP:-/tmp}/automation-hub-ci-summary.md}"
+target_alias="${3:-}"
 
 if [[ ! -d "$workspace" ]]; then
   echo "::error title=CI preflight failed::Private workspace was not created."
@@ -121,6 +122,60 @@ case "$pm" in
     ;;
 esac
 
+# repo-04 has a broader private CI than its package-level check:ci script.
+# Mirror the read-only validation gates that can run safely in this public bridge.
+if [[ "$target_alias" == "repo-04" ]]; then
+  if [[ ! -d .git ]]; then
+    run_stage "local-git-baseline" bash -c '
+      git init -q &&
+      git config user.name "automation-hub" &&
+      git config user.email "automation-hub@invalid.local" &&
+      git add -A &&
+      git commit -qm "ci baseline"
+    ' || { write_summary; exit "$overall_rc"; }
+  fi
+
+  run_stage "shellcheck-tool" bash -c 'command -v shellcheck >/dev/null' || { write_summary; exit "$overall_rc"; }
+
+  run_stage "shellcheck-scripts" bash -c '
+    mapfile -d "" files < <(find scripts -type f -name "*.sh" -print0 2>/dev/null || true)
+    if ((${#files[@]})); then shellcheck -e SC1090 -e SC1091 "${files[@]}"; fi
+  ' || { write_summary; exit "$overall_rc"; }
+
+  run_stage "shellcheck-skills" bash -c '
+    mapfile -d "" files < <(find skills -type f -name "*.sh" -print0 2>/dev/null || true)
+    if ((${#files[@]})); then shellcheck -e SC1090 -e SC1091 "${files[@]}"; fi
+  ' || { write_summary; exit "$overall_rc"; }
+
+  run_stage "governance" bash scripts/governance-check.sh || { write_summary; exit "$overall_rc"; }
+  run_stage "architecture-tests" python3 -m unittest discover -s architecture -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
+  run_stage "architecture-contract" python3 architecture/check.py || { write_summary; exit "$overall_rc"; }
+  run_stage "architecture-drift" bash scripts/repo-architecture-drift-check.sh --repo-only || { write_summary; exit "$overall_rc"; }
+  run_stage "skill-resolver-tests" python3 -m unittest discover -s scripts/test -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
+  run_stage "registry-check" bash scripts/generate-skill-registry.sh --check || { write_summary; exit "$overall_rc"; }
+  run_stage "routing-audit" python3 scripts/lib/skill_context.py audit || { write_summary; exit "$overall_rc"; }
+  run_stage "routing-matrix" python3 scripts/test/skill-routing-matrix.py || { write_summary; exit "$overall_rc"; }
+  run_stage "runner-integration" python3 scripts/test/skill-runner-integration.py || { write_summary; exit "$overall_rc"; }
+  run_stage "skill-audit" bash scripts/audit/skill-audit.sh || { write_summary; exit "$overall_rc"; }
+
+  if [[ -f scripts/audit/shared-path-audit.sh ]]; then
+    run_stage "shared-path-audit" bash scripts/audit/shared-path-audit.sh || { write_summary; exit "$overall_rc"; }
+  else
+    add_row "shared-path-audit" "SKIP"
+  fi
+
+  run_stage "spec-governance-tests" python3 -m unittest discover -s scripts/spec-governance/tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
+  run_stage "spec-truth-gate" python3 scripts/spec-governance/cli.py check --mode audit || { write_summary; exit "$overall_rc"; }
+
+  if has_script "check:ci"; then
+    run_stage "check:ci" "${runner[@]}" "check:ci" || { write_summary; exit "$overall_rc"; }
+  else
+    add_row "check:ci" "SKIP"
+  fi
+
+  write_summary
+  exit "$overall_rc"
+fi
 # Prefer an existing canonical aggregate CI command when available.
 if has_script "check:ci"; then
   run_stage "check:ci" "${runner[@]}" "check:ci" || {
