@@ -38,7 +38,7 @@
 - [x] Detector run #1 結論為 success。
 - [x] 第一次 detector run 在沒有新 private push 時沒有建立新的 CI workflow_dispatch run。
 - [x] Detector log 未輸出 private repository 真名。
-- [ ] 等待下一次真實 private push，確認只 dispatch 發生變更的 alias。
+- [x] 已使用真實 private push 驗證：只有 repo-04 的 `pushed_at` 晚於最近 CI，detector 只 dispatch `repo-04`，對應 CI 最終 PASS。
 - [ ] 觀察第一筆 cron event，確認 5 分鐘 schedule 正常觸發。
 
 ## 6. 先前回歸測試證據
@@ -47,3 +47,15 @@
 - [x] run #17 log 掃描：已知 private repository 名稱命中 0。
 - [x] run #17 private report 內容標記命中 0。
 - [x] run #17 artifact count：0。
+
+
+## 7. 真實 private push smoke test
+
+- [x] 六倉 metadata 比對確認只有 repo-04 有晚於 regression #17 的新 push。
+- [x] Detector run #2 只建立一筆新的 workflow_dispatch。
+- [x] 新 run 的唯一 job 為 `CI — repo-04`。
+- [x] 對應 repo-04 CI PASS。
+- [x] 發現 GitHub dispatch 成功時 API 回傳 HTTP 200，但 detector 原本只接受 204。
+- [x] Dispatch success 判斷改為接受所有 HTTP 2xx。
+- [x] 修正後 detector run PASS。
+- [x] Detector workflow 修改後 security audit PASS。
