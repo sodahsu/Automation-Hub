@@ -1,16 +1,23 @@
-# Design: public-ci-automation-hub
+# 設計：public-ci-automation-hub
 
-## Decision 1 — Public orchestrator, private source
+## 決策 1 — Public orchestrator、Private source
 
-`Automation-Hub` is the only public execution repository. It SHALL contain workflows, generic scripts, security policy, and public-safe aliases only.
+`Automation-Hub` 是唯一的 Public execution repository。
 
-The six target repositories remain private and are cloned into an ephemeral runner workspace only for the duration of a job.
+其中只能包含：
 
-No private checkout is copied back into `Automation-Hub`.
+- workflow
+- generic script
+- security policy
+- public-safe alias
 
-## Decision 2 — Do not commit private repository names
+六個 target repositories 必須繼續維持 Private，只能在 job 執行期間 checkout 到 ephemeral runner workspace。
 
-Committed configuration SHALL identify targets only as:
+Private checkout 不得複製回 `Automation-Hub`。
+
+## 決策 2 — 不 commit private repository 真名
+
+已 commit 的設定只能使用：
 
 ```text
 repo-01
@@ -21,11 +28,11 @@ repo-05
 repo-06
 ```
 
-The real mapping SHALL live in a GitHub Secret such as:
+真實 mapping 必須放在 GitHub Secret，例如：
 
 `PRIVATE_REPOS_JSON`
 
-Conceptual shape only:
+僅示意格式：
 
 ```json
 {
@@ -34,58 +41,64 @@ Conceptual shape only:
 }
 ```
 
-The real values SHALL NOT appear in this repository.
+真實值不得出現在本 Public repository。
 
-Before any resolved repository identifier is used by a shell step, the workflow SHALL mask it with the GitHub log masking command.
+任何解析出的 repository identifier 在 shell step 使用前，必須先透過 GitHub log masking command 隱藏。
 
-## Decision 3 — Separate authentication from target mapping
+## 決策 3 — Authentication 與 target mapping 分離
 
-Use two independent secrets:
+使用兩個獨立 Secret：
 
-- `PRIVATE_REPOS_READ_TOKEN` — fine-grained token scoped to the six selected private repositories, Phase 1 read-only.
-- `PRIVATE_REPOS_JSON` — alias-to-repository mapping.
+- `PRIVATE_REPOS_READ_TOKEN` — fine-grained token，只授權六個 selected private repositories，且 Phase 1 維持 read-only。
+- `PRIVATE_REPOS_JSON` — alias-to-repository mapping。
 
-This prevents committed workflows from containing repository identities and prevents target configuration from being embedded into the token itself.
+如此可避免 workflow 直接包含 repository identity，也避免把 target mapping 綁死在 token 本身。
 
-No write token is part of this change.
+本 change 不包含 write token。
 
-## Decision 4 — Manual dispatch is the emergency trigger
+## 決策 4 — Manual dispatch 作為緊急復原入口
 
-Initial recovery uses `workflow_dispatch` with an alias input.
+初始復原使用 `workflow_dispatch`，input 只接受 alias。
 
-Reason:
+理由：
 
-- it works even while private-repository Actions cannot run;
-- it does not require modifying target repositories;
-- it keeps the recovery path observable;
-- it avoids introducing webhook/GitHub App infrastructure during the emergency fix.
+- 即使 private-repository Actions 無法執行，Public Hub 仍可運作。
+- 不需要修改 target repository。
+- Recovery path 清楚、可觀察。
+- 緊急復原階段不額外引入 webhook / GitHub App infrastructure。
 
-Automatic polling, webhook dispatch, or per-commit orchestration MAY be proposed later as a separate change after the read-only hub is stable.
+Automatic polling、webhook dispatch 或 per-commit orchestration 必須在 read-only Hub 穩定後，以獨立 change 設計。
 
-## Decision 5 — Clone through an ephemeral workspace
+## 決策 5 — 使用 ephemeral workspace checkout
 
-Each job SHALL:
+每個 job 必須：
 
-1. resolve alias to repository from the secret mapping;
-2. mask the resolved identifier;
-3. create an ephemeral `workspace/`;
-4. clone only the requested ref/depth required for CI;
-5. run checks;
-6. summarize status;
-7. remove the workspace in an `always()` cleanup step.
+1. 從 Secret mapping 解析 alias 對應 repository。
+2. Mask 解析後 identifier。
+3. 建立 ephemeral `workspace/`。
+4. 只 checkout CI 所需的 ref / depth。
+5. 執行 checks。
+6. 輸出 sanitized status。
+7. 在 `always()` cleanup step 移除 workspace。
 
-The public repository's `.gitignore` SHALL exclude `workspace/`, `repos/`, `tmp/`, `.env*`, and logs.
+Public repository 的 `.gitignore` 必須排除：
 
-## Decision 6 — Repository-native CI, no invented scripts
+- `workspace/`
+- `repos/`
+- `tmp/`
+- `.env*`
+- log files
 
-The hub MAY detect package manager by lockfile:
+## 決策 6 — 執行 repository-native CI，不自行發明 script
+
+Hub 可以依 lockfile 偵測 package manager：
 
 - `pnpm-lock.yaml` → pnpm
 - `package-lock.json` → npm
 - `yarn.lock` → yarn
 - `bun.lock` / `bun.lockb` → bun
 
-For Node-family repositories, the hub SHALL inspect available package scripts and execute supported checks in this order where present:
+Node-family repository 若有對應 script，依需求執行：
 
 1. install
 2. lint
@@ -93,17 +106,23 @@ For Node-family repositories, the hub SHALL inspect available package scripts an
 4. test
 5. build
 
-If a script does not exist, report `SKIP`.
+若 script 不存在，回報 `SKIP`。
 
-The hub SHALL NOT edit `package.json`, create missing scripts, update lockfiles, install unrequested global project dependencies, or "fix" application code.
+Hub 不得：
 
-Non-Node repositories SHALL use explicitly reviewed repository-specific adapters rather than generic guessing.
+- 修改 `package.json`
+- 建立缺少的 script
+- 更新 lockfile
+- 安裝未經 review 的 global project dependency
+- 自動「修復」application code
 
-## Decision 7 — Obsidian / content repositories require non-content logging
+Non-Node repository 必須使用經明確 review 的 target-specific adapter，不做 generic guessing。
 
-For content-heavy targets, especially vault-style repositories, checks MAY inspect files internally but SHALL NOT print note bodies or source documents into public Actions logs.
+## 決策 7 — Obsidian / 內容型 repository 不得把內容印到 Public log
 
-Allowed public output is aggregate status such as:
+對 content-heavy targets，尤其 vault-style repositories，check 可以在 runner 內部讀檔，但不得把 note body 或 source document 印到 Public Actions log。
+
+允許的 Public output 例如：
 
 ```text
 Health check: PASS
@@ -111,98 +130,120 @@ Broken links: 0
 Validation: PASS
 ```
 
-File contents, note titles that are considered private metadata, and path dumps SHALL be avoided unless explicitly approved.
+除非另有明確核准，否則避免輸出：
 
-## Decision 8 — No source artifacts and no workspace cache
+- file content
+- 可視為 private metadata 的 note title
+- path dump
 
-Phase 1 SHALL not upload artifacts by default.
+## 決策 8 — 不上傳 source artifact，也不 cache workspace
 
-Dependency-manager caches MAY be introduced only if they are proven to contain no private checkout or environment data.
+Phase 1 預設不得上傳 Artifact。
 
-Never cache:
+Dependency-manager cache 只有在證明不含 private checkout 或 environment data 時，才可以另案加入。
+
+永遠不得 cache：
 
 - `workspace/`
-- private source directories
+- private source directory
 - `.env*`
 - credentials
 - vault contents
-- generated bundles that embed private source maps
+- 內嵌 private source map 的 generated bundle
 
-## Decision 9 — Fail closed on mapping/auth problems
+## 決策 9 — Mapping / authentication 問題必須 fail closed
 
-If any of the following occurs, the job SHALL stop before CI execution:
+只要發生下列任一情況，job 必須在 CI 執行前停止：
 
-- alias is not in the secret mapping;
-- resolved repository value is empty or malformed;
-- clone authentication fails;
-- requested ref cannot be resolved;
-- token is unavailable.
+- alias 不存在於 private mapping。
+- 解析出的 repository value 為空或格式錯誤。
+- checkout authentication 失敗。
+- requested ref 無法解析。
+- token 不可用。
 
-The workflow SHALL NOT fall back to a public repository, a guessed repository name, or anonymous cloning.
+Workflow 不得 fallback 到：
 
-## Decision 10 — Deployment remains where it is
+- Public repository
+- 猜測的 repository name
+- anonymous clone
 
-Production deployment is deliberately excluded.
+## 決策 10 — Deployment 維持原位置
 
-Existing private workflows that perform Vercel, Cloudflare, Pages, release, publish, migration, or other mutation duties remain unchanged.
+Production deployment 明確排除。
 
-The hub restores validation first; deployment migration requires a separate OpenSpec change.
+Private repositories 既有用於下列用途的 workflow 保持不動：
 
-## Decision 11 — Bounded execution
+- Vercel
+- Cloudflare
+- Pages
+- release
+- publish
+- migration
+- 其他 mutation
 
-Every job SHALL define a timeout.
+Hub 先恢復 validation；deployment migration 必須另開 OpenSpec change。
 
-Per-target runs SHALL use concurrency groups so duplicate runs for the same alias do not create uncontrolled parallel work.
+## 決策 11 — 執行時間與 concurrency 必須有界
 
-A failure in one target SHALL not expose or modify another target.
+每個 job 都必須設定 timeout。
+
+每個 target 使用獨立 concurrency group，避免同一 alias 出現無控制的重複並行執行。
+
+單一 target 失敗不得暴露或修改其他 target。
 
 ## Rollout
 
-### Phase A — OpenSpec and public-safe skeleton
-- Establish OpenSpec.
-- Add security boundaries.
-- Add generic manual workflow without secrets committed.
+### Phase A — OpenSpec 與 public-safe skeleton
 
-### Phase B — One-target pilot
-- User adds the two required secrets manually.
-- Select one alias as pilot through the secret mapping.
-- Run clone + safe health check.
-- Inspect logs for metadata/content leakage.
+- 建立 OpenSpec。
+- 建立安全邊界。
+- 建立不含 Secret 的 generic manual workflow。
+
+### Phase B — 單一 target pilot
+
+- 使用者手動建立兩個必要 Secrets。
+- 透過 Secret mapping 選定一個 alias 作為 pilot。
+- 執行 checkout + safe health check。
+- 檢查 log 是否洩漏 metadata / content。
 
 ### Phase C — CI command validation
-- Enable repository-native install/lint/typecheck/test/build for the pilot.
-- Compare with repository-local or prior known-good CI behavior.
 
-### Phase D — Remaining aliases
-- Add remaining target mappings only in the private secret.
-- Validate aliases one at a time.
+- 對 pilot 啟用 repository-native install / lint / typecheck / test / build。
+- 與 repository-local 或已知可用的 CI 行為比較。
+
+### Phase D — 其餘 aliases
+
+- 其餘 target mapping 只加入 private Secret。
+- Alias 逐一驗證。
 
 ### Phase E — Operational handoff
-- Use the public hub as the temporary/primary CI path while private quota is unavailable.
-- Keep original target workflows intact for rollback/reference.
 
-### Phase F — Later automation decision
-- Separately evaluate scheduled polling, GitHub App/webhook dispatch, or another event bridge.
-- Do not silently expand this change into an eventing platform.
+- Private quota 無法使用期間，以 Public Hub 作為 temporary / primary CI path。
+- 原 private workflow 保留，供 rollback / reference。
+
+### Phase F — 後續 automation
+
+- 另外評估 scheduled polling、GitHub App / webhook dispatch 或其他 event bridge。
+- 不把本 change 靜默擴張成 eventing platform。
 
 ## Rollback
 
-Rollback requires no change to private repositories.
+Rollback 不需要修改任何 private repository。
 
-1. Stop invoking the hub workflow.
-2. Remove or rotate `PRIVATE_REPOS_READ_TOKEN`.
-3. Remove `PRIVATE_REPOS_JSON`.
-4. Keep or delete the public hub workflow as desired.
-5. Original private repository workflows remain the reference path when quota/capacity returns.
+1. 停止執行 Hub workflow。
+2. 移除或 rotate `PRIVATE_REPOS_READ_TOKEN`。
+3. 移除 `PRIVATE_REPOS_JSON`。
+4. Public Hub workflow 可依需求保留或刪除。
+5. Private Actions quota / capacity 恢復後，原 private repository workflow 仍是 reference path。
 
-## Evidence Required Before Declaring Phase 1 Complete
+## Phase 1 完成前所需證據
 
-- successful read-only clone from public runner;
-- token is masked and absent from logs;
-- resolved repository identifier is masked;
-- no private source appears in public logs;
-- no private source artifact exists;
-- no write occurred to the target repository;
-- timeout and concurrency behavior confirmed;
-- cleanup step ran;
-- at least one target completed its repository-native CI checks.
+- Public runner 可以成功 read-only checkout。
+- Token 已 masking，且不出現在 log。
+- 解析後 repository identifier 已 masking。
+- Public log 不含 private source。
+- 沒有 private source Artifact。
+- 沒有對 target repository 寫入。
+- Timeout / concurrency 行為已確認。
+- Cleanup step 有執行。
+- 至少一個 target 完成 repository-native CI checks。
