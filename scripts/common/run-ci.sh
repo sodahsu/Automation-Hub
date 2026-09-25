@@ -139,12 +139,12 @@ if [[ "$target_alias" == "repo-04" ]]; then
 
   run_stage "shellcheck-scripts" bash -c '
     mapfile -d "" files < <(find scripts -type f -name "*.sh" -print0 2>/dev/null || true)
-    if ((${#files[@]})); then shellcheck -e SC1090 -e SC1091 "${files[@]}"; fi
+    if ((${#files[@]})); then shellcheck --severity=error -e SC1090 -e SC1091 "${files[@]}"; fi
   ' || { write_summary; exit "$overall_rc"; }
 
   run_stage "shellcheck-skills" bash -c '
     mapfile -d "" files < <(find skills -type f -name "*.sh" -print0 2>/dev/null || true)
-    if ((${#files[@]})); then shellcheck -e SC1090 -e SC1091 "${files[@]}"; fi
+    if ((${#files[@]})); then shellcheck --severity=error -e SC1090 -e SC1091 "${files[@]}"; fi
   ' || { write_summary; exit "$overall_rc"; }
 
   run_stage "governance" bash scripts/governance-check.sh || { write_summary; exit "$overall_rc"; }
