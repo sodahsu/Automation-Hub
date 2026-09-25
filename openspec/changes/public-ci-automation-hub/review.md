@@ -136,3 +136,16 @@ The dedicated adapter exposed a harness bug in `run_stage()`: failure status was
 ## repo-04 ShellCheck Alignment
 
 The first corrected dedicated-adapter run exposed a real non-zero ShellCheck status, but comparison with the original private CI showed a semantic mismatch: the private workflow configures ShellCheck with `severity: error`, while the bridge initially used ShellCheck's default severity handling. The bridge has been corrected to use `--severity=error` and the same SC1090 / SC1091 exclusions. A new repo-04 run is required before concluding that the private repository itself has ShellCheck errors.
+
+## repo-04 Final Dedicated-Adapter Verification
+
+- Result: PASS.
+- All mirrored read-only gates passed: ShellCheck scripts/skills, governance, architecture unit/contract/drift checks, skill resolver, registry, routing audit/matrix, runner integration, skill audit, shared-path audit, spec-governance tests, spec-truth-gate, and canonical `check:ci`.
+- Connector-side log review found no known private repository name hits.
+- Artifact count: 0.
+- No private-generated Job Summary content was observed.
+- repo-04 is now sufficiently covered for Phase 1 CI recovery.
+
+## repo-05 Adapter Design
+
+The target's primary CI workflow is contract-oriented rather than package-oriented. The public bridge now mirrors the read-only parts of that workflow: Python unit tests, candidate contract validation, architecture JSON/doc validation, and `@fission-ai/openspec@1.8.0 validate --all --strict`. The bridge uses Node 20.19.0 for this alias to match the original workflow. The separate scheduled upstream-watch workflow is intentionally not folded into per-run CI because it is external monitoring/reporting rather than a source-validation gate; it remains a later automation concern.
