@@ -111,6 +111,23 @@ jobs:
         continue-on-error: true
         run: |
           set -Eeuo pipefail
+
+          # Private repository tooling must not write directly to public Actions
+          # command files. Give child processes isolated temporary sinks instead.
+          private_cmd_dir="${RUNNER_TEMP}/private-ci-command-files"
+          mkdir -p "${private_cmd_dir}"
+          chmod 700 "${private_cmd_dir}"
+
+          export GITHUB_STEP_SUMMARY="${private_cmd_dir}/step-summary.md"
+          export GITHUB_OUTPUT="${private_cmd_dir}/output.txt"
+          export GITHUB_ENV="${private_cmd_dir}/env.txt"
+          export GITHUB_PATH="${private_cmd_dir}/path.txt"
+
+          : > "${GITHUB_STEP_SUMMARY}"
+          : > "${GITHUB_OUTPUT}"
+          : > "${GITHUB_ENV}"
+          : > "${GITHUB_PATH}"
+
           bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md"
 
       - name: Publish sanitized summary
@@ -136,6 +153,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           rm -rf workspace
+          rm -rf "${RUNNER_TEMP}/private-ci-command-files"
           rm -f "${RUNNER_TEMP}"/automation-hub-*.log "${RUNNER_TEMP}/ci-summary.md" 2>/dev/null || true
 
       - name: Fail workflow when private CI failed
