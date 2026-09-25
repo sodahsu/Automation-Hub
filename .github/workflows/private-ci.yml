@@ -80,14 +80,13 @@ jobs:
             # repo-06 is large. Match its private Vault Health sparse checkout
             # instead of downloading the full repository archive.
             askpass="${RUNNER_TEMP}/automation-hub-git-askpass.sh"
-            cat > "${askpass}" <<'ASKPASS'
-            #!/usr/bin/env bash
-            case "$1" in
-              *Username*) printf '%s\n' "x-access-token" ;;
-              *Password*) printf '%s\n' "${GH_TOKEN}" ;;
-              *) exit 1 ;;
-            esac
-            ASKPASS
+            printf '%s\n' \
+              '#!/usr/bin/env bash' \
+              'case "$1" in' \
+              '  *Username*) printf "%s\\n" "x-access-token" ;;' \
+              '  *Password*) printf "%s\\n" "${GH_TOKEN}" ;;' \
+              '  *) exit 1 ;;' \
+              'esac' > "${askpass}"
             chmod 700 "${askpass}"
 
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
