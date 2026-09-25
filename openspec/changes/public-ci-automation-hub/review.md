@@ -185,3 +185,7 @@ The existing repo-05 workflow run was then re-run as attempt #2. Result: PASS. C
 ## Final Phase 1 Rollout State
 
 All six aliases now execute successfully through the public Automation-Hub path. The recovery objective is met: private repositories remain private; the fine-grained token is selected-repository and read-only; public GitHub-hosted runners execute sanitized CI; private source/report bodies are not uploaded as artifacts; and no target repository write access is required for CI recovery.
+
+## Follow-up Automation Handoff
+
+The deferred automatic-triggering decision has now been implemented in the separate `automatic-private-ci-sweep` OpenSpec change. The selected design is a public three-hour scheduled sweep using the same validated bridge, plus a path-scoped `main` push regression for hub workflow/adapter changes. It adds no private-repository write permission and no second credential. Automatic regression run #17 completed all six aliases successfully with zero known private-name hits, zero private report markers, and zero artifacts.
