@@ -54,3 +54,12 @@ Detector 是獨立 workflow，因此沒有變更時產生的 polling run 不會�
 第一次 dispatch 時另發現 GitHub API 實際成功建立 workflow run，但回傳 HTTP 200；原 detector 只接受 HTTP 204，因此把成功誤判為 failure。成功條件已修正為所有 HTTP 2xx，修正後 detector PASS。
 
 這個 smoke test 已證明「有新 push 才跑，且只跑變更 alias」的核心 selector 行為。
+
+
+## 六倉 private update → CI 實跑證據
+
+六個 alias 都已各自取得「private repository 有新 push → detector 判斷 → dispatch 對應 alias → Public CI PASS」的實跑證據。
+
+其中 repo-04 使用先前的真實單倉 smoke test；repo-01、repo-02、repo-03、repo-05、repo-06 則在六倉 workflow hardening 後由同一輪 detector 自動判斷並 dispatch。當時 repo-04 沒有新 push，因此沒有被多跑，證明 selector 不會固定重跑六倉。
+
+目前唯一尚未取得的是 GitHub Scheduler 自己的第一筆 `event: schedule` run。也就是：change detection 與 per-alias dispatch 已確認；「完全無人工觸發 detector」的 scheduler-specific evidence 仍待第一筆 cron event。
