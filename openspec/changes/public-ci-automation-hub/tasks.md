@@ -76,10 +76,10 @@
 ## 8. Six-Target Rollout
 
 - [x] 8.1 Add all six alias mappings in Secret only, not committed config.
-- [ ] 8.2 Validate each alias independently. repo-01 through repo-04 are PASS; repo-05 adapter is ready for validation.
-- [ ] 8.3 Confirm each target's package manager/runtime assumptions. repo-01 through repo-04 are Node 22 + npm; repo-05 uses Python 3.x + Node 20.19.0 for OpenSpec validation.
-- [ ] 8.4 Confirm each target's supported CI stages. repo-01 through repo-03 use canonical `check:ci`; repo-04 uses the dedicated governance/architecture/routing/spec adapter; repo-05 candidate-contract adapter is ready.
-- [ ] 8.5 Confirm content-heavy targets use safe aggregate-only logging.
+- [x] 8.2 Validate each alias independently. repo-01, repo-02, repo-03, repo-04, and repo-06 PASS; repo-05 adapter runs correctly and surfaces a real private target contract failure.
+- [x] 8.3 Confirm each target's package manager/runtime assumptions. repo-01 through repo-04 use Node 22 paths, repo-05 uses Python + Node 20.19.0 for OpenSpec, and repo-06 uses Python with sparse Git metadata for Vault Health.
+- [x] 8.4 Confirm each target's supported CI stages. Generic Node `check:ci`, repo-04 dedicated governance/architecture adapter, repo-05 candidate-contract adapter, and repo-06 Vault Health adapter are all exercised.
+- [x] 8.5 Confirm content-heavy targets use safe aggregate-only logging; repo-06 published only sanitized stage statuses, with no private report body or known private repository name in the fetched public log.
 - [ ] 8.6 Run a six-target manual health sweep and capture sanitized summary.
 
 ## 9. Existing Private Workflows
@@ -182,7 +182,7 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Add read-only Vault Health adapter: Python dependency setup, health unit tests, managed-skill sync, metadata normalizer, vault health, follow-up radar, advisory stale-fact audit, Hub/index drift gates, relation structural gate, canonical memory health, and source-link dry-run check.
 - [x] Keep schedule-only claim harvest/backlog reporting out of manual CI and keep all AI generation/retry workflows out of the hub.
 - [x] Replace YAML-sensitive askpass heredoc with a deterministic `printf`-generated helper.
-- [ ] Run repo-06 through the public bridge and resolve any sparse-checkout/tooling compatibility gaps.
+- [x] Run repo-06 through the public bridge and resolve sparse-checkout authentication compatibility; final run PASS.
 
 ## repo-05 validation result
 
@@ -191,3 +191,23 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] `candidate-contract` correctly fails on a real private-repository lifecycle rule rather than a bridge/runtime defect.
 - [x] Exactly one active candidate is overdue: its `reviewBy` date is 2026-09-24 while status remains `researching` on 2026-09-25.
 - [x] No automatic private-repository mutation was performed; status/date requires an explicit lifecycle decision in the private repo.
+
+## repo-06 final validation result
+
+- [x] Sparse read-only checkout PASS using the selected-repository PAT only during clone/materialization.
+- [x] All remotes removed before CI execution.
+- [x] python-deps PASS.
+- [x] health-unit-tests PASS.
+- [x] skill-sync PASS.
+- [x] metadata-normalizer PASS.
+- [x] vault-health PASS.
+- [x] followup-radar PASS.
+- [x] stale-fact-audit PASS.
+- [x] hub-drift PASS.
+- [x] index-drift PASS.
+- [x] relation-health PASS.
+- [x] memory-health PASS.
+- [x] source-link-format PASS.
+- [x] claim-harvest / source-backlog correctly SKIP because they are schedule-only.
+- [x] Fetched public log contains no known private repository name hits and no private report body; `Vault Health` appears only in public adapter comments.
+- [x] Artifact count 0.
