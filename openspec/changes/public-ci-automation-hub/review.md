@@ -120,3 +120,11 @@ This review does not authorize production deployment migration, write access to 
 - Public Job Summary contained only the hub-generated sanitized target/stage table.
 - Connector-side log review found no known private repository name hits.
 - Artifact count: 0.
+
+## Coverage Review — repo-04 run #8
+
+- Generic bridge result: PASS.
+- Security boundary: PASS (no known private repository name hits in fetched log; artifact count 0; no private Job Summary injection).
+- Coverage finding: the target's original private CI contains substantially more validation than its package-level `check:ci`, including ShellCheck, governance, architecture contracts/drift, skill resolver/routing/integration audits, skill audit, spec-governance tests, and spec-truth-gate.
+- Action: a dedicated `repo-04` adapter has been added to mirror those read-only gates. Event classification, deployment/mutation, and failure-artifact upload remain intentionally excluded from the public bridge.
+- Status: requires a fresh repo-04 run before this alias can be marked equivalent enough for recovery use.
