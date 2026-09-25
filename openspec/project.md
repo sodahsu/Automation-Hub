@@ -1,41 +1,38 @@
-# Automation Hub — OpenSpec Project
+# Automation Hub — OpenSpec 專案
 
-## Purpose
+## 目的
 
-`Automation-Hub` is a public orchestration repository used to run CI and repository health checks for six private repositories without moving their source code, notes, or deployment credentials into this repository.
+`Automation-Hub` 是一個公開的 CI 協調儲存庫，用來替六個 private repositories 執行 CI 與 repository health checks，同時避免把 private source code、筆記內容或 deployment credentials 搬進本 Public repo。
 
-The immediate objective is to restore CI capability while private-repository GitHub-hosted Actions quota is unavailable.
+最初目標是：當 private-repository GitHub-hosted Actions quota 無法使用時，仍能恢復 CI 能力。
 
-## Governance
+## 治理原則
 
-- This repository is public. Treat every committed file, workflow, log, artifact, cache key, and summary as public information.
-- Private repository names, clone URLs, source code, note content, environment values, deployment credentials, and tokens SHALL NOT be committed here.
-- Private repositories are addressed by public-safe aliases only: `repo-01` through `repo-06`.
-- The alias-to-repository mapping SHALL be provided at runtime through GitHub Secrets or another non-public configuration channel.
-- Phase 1 access SHALL be read-only.
-- Production deployment, billing changes, repository visibility changes, branch protection changes, secret rotation, and writes to private repositories are outside the initial scope.
-- Existing workflows inside private repositories SHALL remain untouched until the hub is validated and an explicit migration decision is made.
+- 本儲存庫為 Public。所有已 commit 的檔案、workflow、log、artifact、cache key 與 summary 都必須視為公開資訊。
+- Private repository 名稱、clone URL、source code、note content、environment value、deployment credential 與 token 不得 commit 到這裡。
+- Private repositories 只能使用 public-safe alias：`repo-01`～`repo-06`。
+- Alias-to-repository mapping 必須在 runtime 透過 GitHub Secrets 或其他非公開設定提供。
+- Private repository access 必須維持 read-only。
+- Production deployment、billing 變更、repository visibility 變更、branch protection 變更、secret rotation，以及對 private repositories 的寫入，都不在本專案初始範圍內。
+- Private repositories 既有 workflow 保持不動，除非另有明確核准。
+- Public log 必須採 sanitized output；不得輸出 private source、完整 environment 或 private repository identifier。
+- Private workspace、暫存 command files 與 credential helper 必須在成功或失敗後 cleanup。
 
-## OpenSpec Workflow
+## 自動化原則
 
-Behavioral or architectural changes to this repository SHOULD be captured under:
+- Manual `workflow_dispatch` 必須保留，供立即執行單一 alias。
+- Private change detector 可以定時 polling，但不得因此增加 private repository write access。
+- Detector 只可用 Public Hub 自己的 `actions: write` 觸發既有 workflow。
+- Hub 自身 workflow/adapter 變更時，可以跑六倉 regression。
+- 自動化不得把 private alias mapping、commit metadata 或 source artifact 長期保存到 Public repo。
 
-`openspec/changes/<change-id>/`
+## 驗證
 
-An active change SHOULD contain:
+交付前至少確認：
 
-- `proposal.md`
-- `design.md`
-- `tasks.md`
-- `review.md`
-- `specs/**/spec.md`
-
-Canonical capabilities MAY be promoted later to `openspec/specs/` after implementation and review.
-
-## Initial Change
-
-The initial change is:
-
-`public-ci-automation-hub`
-
-It defines the emergency read-only public-runner architecture for restoring CI across six private repositories.
+- 六個 alias 都能在 Public runner 執行。
+- Private credential 維持 selected-repository read-only。
+- Public logs 沒有 known private repository name hit。
+- Artifact count 為 0，除非另有明確且經 review 的 public-safe artifact。
+- Cleanup、masking、command-file isolation 正常。
+- OpenSpec strict validation 在可用時通過。
