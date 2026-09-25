@@ -1,0 +1,178 @@
+name: Detect Private Repository Changes
+
+on:
+  schedule:
+    - cron: '2-57/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/detect-private-changes.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: private-change-detector
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Detect and dispatch changed aliases
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Detect private push activity
+        env:
+          PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          PRIVATE_REPOS_READ_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
+          HUB_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          if [[ -z "${PRIVATE_REPOS_JSON}" ]]; then
+            echo "::error title=Missing secret::Private repository mapping is not configured."
+            exit 1
+          fi
+
+          if [[ -z "${PRIVATE_REPOS_READ_TOKEN}" ]]; then
+            echo "::error title=Missing secret::Private repository read credential is not configured."
+            exit 1
+          fi
+
+          if ! jq -e 'type == "object"' >/dev/null <<<"${PRIVATE_REPOS_JSON}"; then
+            echo "::error title=Invalid secret::Private repository mapping must be a JSON object."
+            exit 1
+          fi
+
+          aliases=(repo-01 repo-02 repo-03 repo-04 repo-05 repo-06)
+          runs_file="${RUNNER_TEMP}/private-ci-runs.json"
+
+          runs_code="$(curl --silent --location             --output "${runs_file}"             --write-out "%{http_code}"             --header "Accept: application/vnd.github+json"             --header "Authorization: Bearer ${HUB_TOKEN}"             --header "X-GitHub-Api-Version: 2026-03-10"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/private-ci.yml/runs?per_page=100")"
+
+          if [[ "${runs_code}" != "200" ]]; then
+            rm -f "${runs_file}"
+            echo "::error title=Hub history unavailable::Unable to read prior CI history (HTTP ${runs_code})."
+            exit 1
+          fi
+
+          declare -A latest_status
+          declare -A latest_started
+
+          while IFS= read -r run_id; do
+            [[ -n "${run_id}" ]] || continue
+            jobs_file="${RUNNER_TEMP}/jobs-${run_id}.json"
+
+            jobs_code="$(curl --silent --location               --output "${jobs_file}"               --write-out "%{http_code}"               --header "Accept: application/vnd.github+json"               --header "Authorization: Bearer ${HUB_TOKEN}"               --header "X-GitHub-Api-Version: 2026-03-10"               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100")"
+
+            if [[ "${jobs_code}" != "200" ]]; then
+              rm -f "${jobs_file}"
+              echo "::error title=Hub history unavailable::Unable to read prior CI jobs (HTTP ${jobs_code})."
+              exit 1
+            fi
+
+            while IFS=$'\t' read -r alias status started_at; do
+              [[ -n "${alias}" ]] || continue
+              if [[ -z "${latest_status[${alias}]:-}" ]]; then
+                latest_status["${alias}"]="${status}"
+                latest_started["${alias}"]="${started_at}"
+              fi
+            done < <(
+              jq -r '
+                .jobs[]
+                | select(.name | test("^CI — repo-0[1-6]$"))
+                | [
+                    (.name | sub("^CI — "; "")),
+                    .status,
+                    (.started_at // "")
+                  ]
+                | @tsv
+              ' "${jobs_file}"
+            )
+
+            rm -f "${jobs_file}"
+
+            found=0
+            for alias in "${aliases[@]}"; do
+              [[ -n "${latest_status[${alias}]:-}" ]] && ((found += 1)) || true
+            done
+            (( found == 6 )) && break
+          done < <(jq -r '.workflow_runs[].id' "${runs_file}")
+
+          rm -f "${runs_file}"
+
+          {
+            echo "## Private CI change detector"
+            echo
+            echo "| Target | Decision |"
+            echo "|---|---|"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          dispatched=0
+
+          for alias in "${aliases[@]}"; do
+            private_repo="$(jq -er --arg alias "${alias}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
+
+            if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+              echo "::error title=Invalid target mapping::${alias} does not resolve to a valid repository identifier."
+              exit 1
+            fi
+
+            echo "::add-mask::${private_repo}"
+
+            meta_file="${RUNNER_TEMP}/meta-${alias}.json"
+            meta_code="$(curl --silent --location               --output "${meta_file}"               --write-out "%{http_code}"               --header "Accept: application/vnd.github+json"               --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"               --header "X-GitHub-Api-Version: 2026-03-10"               "https://api.github.com/repos/${private_repo}")"
+
+            if [[ "${meta_code}" != "200" ]]; then
+              rm -f "${meta_file}"
+              echo "::error title=Private metadata check failed::${alias} metadata lookup failed with HTTP ${meta_code}."
+              exit 1
+            fi
+
+            pushed_at="$(jq -r '.pushed_at // empty' "${meta_file}")"
+            rm -f "${meta_file}"
+
+            if [[ -z "${pushed_at}" ]]; then
+              echo "::error title=Private metadata check failed::${alias} has no usable push timestamp."
+              exit 1
+            fi
+
+            status="${latest_status[${alias}]:-none}"
+            started_at="${latest_started[${alias}]:-}"
+
+            if [[ "${status}" != "none" && "${status}" != "completed" ]]; then
+              if [[ -n "${started_at}" && ( "${started_at}" > "${pushed_at}" || "${started_at}" == "${pushed_at}" ) ]]; then
+                echo "| ${alias} | SKIP — current CI already covers latest push |" >> "${GITHUB_STEP_SUMMARY}"
+              else
+                echo "| ${alias} | WAIT — CI in progress; recheck next poll |" >> "${GITHUB_STEP_SUMMARY}"
+              fi
+              continue
+            fi
+
+            if [[ -n "${started_at}" && ( "${started_at}" > "${pushed_at}" || "${started_at}" == "${pushed_at}" ) ]]; then
+              echo "| ${alias} | SKIP — no new push |" >> "${GITHUB_STEP_SUMMARY}"
+              continue
+            fi
+
+            payload="$(jq -cn --arg ref "main" --arg target "${alias}" '{ref:$ref,inputs:{target:$target}}')"
+            dispatch_file="${RUNNER_TEMP}/dispatch-${alias}.txt"
+
+            dispatch_code="$(curl --silent --location               --output "${dispatch_file}"               --write-out "%{http_code}"               --request POST               --header "Accept: application/vnd.github+json"               --header "Authorization: Bearer ${HUB_TOKEN}"               --header "X-GitHub-Api-Version: 2026-03-10"               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/private-ci.yml/dispatches"               --data "${payload}")"
+
+            rm -f "${dispatch_file}"
+
+            if [[ "${dispatch_code}" != "204" ]]; then
+              echo "::error title=CI dispatch failed::Unable to dispatch ${alias} (HTTP ${dispatch_code})."
+              exit 1
+            fi
+
+            ((dispatched += 1))
+            echo "| ${alias} | RUN — new push detected |" >> "${GITHUB_STEP_SUMMARY}"
+          done
+
+          echo >> "${GITHUB_STEP_SUMMARY}"
+          echo "Dispatched targets: ${dispatched}" >> "${GITHUB_STEP_SUMMARY}"
