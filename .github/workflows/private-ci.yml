@@ -194,7 +194,7 @@ jobs:
           set -Eeuo pipefail
           rm -rf workspace
           rm -rf "${RUNNER_TEMP}/private-ci-command-files"
-          rm -f "${RUNNER_TEMP}"/automation-hub-*.log "${RUNNER_TEMP}/ci-summary.md" 2>/dev/null || true
+          rm -f "${RUNNER_TEMP}"/automation-hub-*.log "${RUNNER_TEMP}/ci-summary.md" "${RUNNER_TEMP}/automation-hub-git-askpass.sh" 2>/dev/null || true
 
       - name: Fail workflow when private CI failed
         if: ${{ steps.private_ci.outcome == 'failure' }}
