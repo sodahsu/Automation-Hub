@@ -70,6 +70,17 @@ has_script() {
 
 cd "$workspace"
 
+# repo-05 has no package.json but its private CI is a Python + OpenSpec contract suite.
+# Mirror candidate-contract.yml exactly enough for read-only recovery.
+if [[ "$target_alias" == "repo-05" ]]; then
+  run_stage "unit-tests" python3 -m unittest discover -s tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
+  run_stage "candidate-contract" python3 scripts/check-candidates.py || { write_summary; exit "$overall_rc"; }
+  run_stage "architecture-json" python3 -m json.tool architecture/contract.json || { write_summary; exit "$overall_rc"; }
+  run_stage "architecture-doc" test -s docs/CANDIDATE-CONTRACT.md || { write_summary; exit "$overall_rc"; }
+  run_stage "openspec-strict" npx --yes @fission-ai/openspec@1.8.0 validate --all --strict || { write_summary; exit "$overall_rc"; }
+  write_summary
+  exit "$overall_rc"
+fi
 if [[ ! -f package.json ]]; then
   add_row "adapter" "SKIP (no supported project adapter)"
   write_summary
