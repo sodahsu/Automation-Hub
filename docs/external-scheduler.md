@@ -78,6 +78,14 @@ cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可
 
 External scheduler 已於 2026-09-25 完成完整鏈路驗證，GitHub 原生 `schedule` 已從 detector 移除，避免兩個喚醒來源互相 cancel。External scheduler 目前是唯一的定時喚醒來源。
 
-## Token 續期
+## Token 輪替
 
-專用 token 於 2026-12-24 到期。到期後 cron-job.org 會收到 401，detector 將停止被喚醒；Public CI 本身不會因此失敗，所以不會有 GitHub 端告警。續期時在 GitHub token 設定頁 Regenerate，並更新 cron-job.org 的 Authorization header；cron-job.org 的 Failure notification 必須維持 On。
+專用 token 已於 2026-09-25 改為 No expiration：權限只能觸發 Automation-Hub 的 Actions，外洩時最大影響是多跑幾次 detector，不值得承擔定期到期導致排程無聲中斷的風險。
+
+需要輪替（懷疑外洩或定期更換）時：
+
+1. GitHub token 設定頁按 Regenerate。**舊 token 會立即失效**，從這一刻起到 cron-job.org 存檔前的喚醒都會 401。
+2. 立刻在 cron-job.org 該 job 的 ADVANCED 頁，把 `Authorization` 的 Value 換成 `Bearer <新 token>`，按 SAVE。以手動貼上為準；該頁面不接受瀏覽器自動化工具直接改值。
+3. 等下一輪 5 分鐘，確認 Automation-Hub 出現新的 `workflow_dispatch` detector run 且 success。
+
+中斷期間漏掉的喚醒不需補跑：detector 恢復後第一輪會以 `pushed_at` 補抓所有未涵蓋的 push。cron-job.org 的 Failure notification 必須維持 On，因為 token 失效時 GitHub 端不會產生任何告警。
