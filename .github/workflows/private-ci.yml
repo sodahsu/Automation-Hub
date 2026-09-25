@@ -75,29 +75,59 @@ jobs:
           echo "::add-mask::${private_repo}"
 
           rm -rf workspace
-          mkdir -p workspace
 
-          # Phase 1 is strictly read-only. Use the repository archive API, which
-          # requires only Contents: Read for a fine-grained PAT.
-          archive="${RUNNER_TEMP}/private-repo.tar.gz"
-          http_code="$(curl --silent --show-error --location \
-            --output "${archive}" \
-            --write-out "%{http_code}" \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer ${GH_TOKEN}" \
-            --header "X-GitHub-Api-Version: 2026-03-10" \
-            "https://api.github.com/repos/${private_repo}/tarball")"
+          if [[ "${TARGET_ALIAS}" == "repo-06" ]]; then
+            # repo-06 is large. Match its private Vault Health sparse checkout
+            # instead of downloading the full repository archive.
+            askpass="${RUNNER_TEMP}/automation-hub-git-askpass.sh"
+            cat > "${askpass}" <<'ASKPASS'
+            #!/usr/bin/env bash
+            case "$1" in
+              *Username*) printf '%s\n' "x-access-token" ;;
+              *Password*) printf '%s\n' "${GH_TOKEN}" ;;
+              *) exit 1 ;;
+            esac
+            ASKPASS
+            chmod 700 "${askpass}"
 
-          if [[ "${http_code}" != "200" ]]; then
+            GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+              git clone --depth 1 --filter=blob:none --sparse --no-tags \
+              "https://github.com/${private_repo}.git" workspace
+            rm -f "${askpass}"
+
+            git -C workspace sparse-checkout set \
+              .agents .claude 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive
+
+            # Keep local Git metadata because Vault Health uses git ls-files,
+            # but remove every remote so later CI has no repository write path.
+            git -C workspace remote remove origin || true
+            git -C workspace config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+            echo "Private target sparse checkout completed with read-only Git access."
+          else
+            mkdir -p workspace
+
+            # Phase 1 is strictly read-only. Use the repository archive API, which
+            # requires only Contents: Read for a fine-grained PAT.
+            archive="${RUNNER_TEMP}/private-repo.tar.gz"
+            http_code="$(curl --silent --show-error --location \
+              --output "${archive}" \
+              --write-out "%{http_code}" \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              "https://api.github.com/repos/${private_repo}/tarball")"
+
+            if [[ "${http_code}" != "200" ]]; then
+              rm -f "${archive}"
+              echo "::error title=Private repository access denied::Read-only archive request returned HTTP ${http_code}. Verify the fine-grained token includes this repository and Contents: Read."
+              exit 1
+            fi
+
+            tar -xzf "${archive}" -C workspace --strip-components=1
             rm -f "${archive}"
-            echo "::error title=Private repository access denied::Read-only archive request returned HTTP ${http_code}. Verify the fine-grained token includes this repository and Contents: Read."
-            exit 1
+
+            echo "Private target checkout completed with read-only archive access."
           fi
-
-          tar -xzf "${archive}" -C workspace --strip-components=1
-          rm -f "${archive}"
-
-          echo "Private target checkout completed with read-only archive access."
 
       - name: Set up Node 20 runtime for repo-05
         if: ${{ inputs.target == 'repo-05' }}
