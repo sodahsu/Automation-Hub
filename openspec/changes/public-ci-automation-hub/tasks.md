@@ -172,7 +172,7 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Add read-only adapter for unit tests, candidate contract validation, architecture JSON/doc validation, and OpenSpec strict validation.
 - [x] Align repo-05 Node runtime with original private CI: Node 20.19.0.
 - [x] Keep scheduled `upstream-watch` outside the per-run CI adapter; it is a separate monitoring concern.
-- [ ] Run repo-05 through the public bridge and verify all stages plus log/artifact isolation.
+- [x] Run repo-05 through the public bridge: adapter executes correctly and surfaces a real candidate-contract failure in the private target (one overdue active review checkpoint).
 
 ## repo-06 adapter readiness
 
@@ -183,3 +183,11 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Keep schedule-only claim harvest/backlog reporting out of manual CI and keep all AI generation/retry workflows out of the hub.
 - [x] Replace YAML-sensitive askpass heredoc with a deterministic `printf`-generated helper.
 - [ ] Run repo-06 through the public bridge and resolve any sparse-checkout/tooling compatibility gaps.
+
+## repo-05 validation result
+
+- [x] Public bridge reached the dedicated repo-05 adapter.
+- [x] Unit tests PASS.
+- [x] `candidate-contract` correctly fails on a real private-repository lifecycle rule rather than a bridge/runtime defect.
+- [x] Exactly one active candidate is overdue: its `reviewBy` date is 2026-09-24 while status remains `researching` on 2026-09-25.
+- [x] No automatic private-repository mutation was performed; status/date requires an explicit lifecycle decision in the private repo.
