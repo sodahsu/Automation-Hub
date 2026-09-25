@@ -14,7 +14,8 @@ The safest next step is a scheduled public sweep that reuses the already-validat
 4. Use `fail-fast: false` so one failing target does not suppress the remaining targets.
 5. Limit scheduled parallelism to two targets at a time.
 6. Preserve the existing read-only token, secret mapping, sanitized logs, zero-artifact policy, and cleanup behavior.
-7. Keep deployment, private-repository mutation, and push-event bridge infrastructure out of this change.
+7. Add a hub-only push regression trigger for changes to the bridge workflow or shared adapter code on `main`.
+8. Keep deployment, private-repository mutation, and private-repository push-event bridge infrastructure out of this change.
 
 ## Schedule
 
@@ -32,12 +33,13 @@ The non-zero minute intentionally avoids the most common top-of-hour scheduling 
 - Existing `.github/workflows/private-ci.yml`.
 - Six public-safe aliases only.
 - Scheduled CI sweep plus existing manual single-target execution.
+- Hub-only push regression sweep when bridge code changes on `main`.
 
 ## Non-Goals
 
 - No private repository workflow edits.
 - No private repository write token.
-- No webhook relay, GitHub App event bridge, or external server.
+- No private-repository webhook relay, GitHub App event bridge, or external server.
 - No production deploy migration.
 - No public alias-to-repository mapping.
 - No cache/artifact containing private source.
