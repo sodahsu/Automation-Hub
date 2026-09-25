@@ -59,3 +59,16 @@
 - [x] Dispatch success 判斷改為接受所有 HTTP 2xx。
 - [x] 修正後 detector run PASS。
 - [x] Detector workflow 修改後 security audit PASS。
+
+
+## 8. 六倉更新觸發 CI 證據
+
+- [x] repo-01 private repo 有新 push → detector dispatch `CI — repo-01` → PASS。
+- [x] repo-02 private repo 有新 push → detector dispatch `CI — repo-02` → PASS。
+- [x] repo-03 private repo 有新 push → detector dispatch `CI — repo-03` → PASS。
+- [x] repo-04 先前真實 private push smoke test → detector 只 dispatch `CI — repo-04` → PASS。
+- [x] repo-05 private repo 有新 push → detector dispatch `CI — repo-05` → PASS。
+- [x] repo-06 private repo 有新 push → detector dispatch `CI — repo-06` → PASS。
+- [x] 最近一次五倉 hardening 後，detector 只 dispatch 有變更的 repo-01 / 02 / 03 / 05 / 06；未變更的 repo-04 沒有被多跑。
+- [x] 這 5 筆 Public CI log：已知 private repository 名稱命中 0、private report marker 命中 0、Artifact count 0。
+- [ ] 等待第一筆真正的 `event: schedule` detector run，完成「完全無需手動碰 Automation-Hub」的 end-to-end 排程證據。
