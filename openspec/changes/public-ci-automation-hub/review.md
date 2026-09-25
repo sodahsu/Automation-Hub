@@ -128,3 +128,7 @@ This review does not authorize production deployment migration, write access to 
 - Coverage finding: the target's original private CI contains substantially more validation than its package-level `check:ci`, including ShellCheck, governance, architecture contracts/drift, skill resolver/routing/integration audits, skill audit, spec-governance tests, and spec-truth-gate.
 - Action: a dedicated `repo-04` adapter has been added to mirror those read-only gates. Event classification, deployment/mutation, and failure-artifact upload remain intentionally excluded from the public bridge.
 - Status: requires a fresh repo-04 run before this alias can be marked equivalent enough for recovery use.
+
+## Runner Correctness Finding — repo-04 dedicated-adapter run
+
+The dedicated adapter exposed a harness bug in `run_stage()`: failure status was read after the `if` statement rather than inside the failing branch. In Bash this could yield status 0, producing contradictory `FAIL (exit 0)` rows and allowing the job to finish green. The helper has been corrected to capture `$?` immediately in the `else` branch and return the real non-zero code. The repo-04 adapter must be re-run before its ShellCheck state is considered valid.
