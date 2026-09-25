@@ -76,7 +76,7 @@
 ## 8. Six-Target Rollout
 
 - [x] 8.1 Add all six alias mappings in Secret only, not committed config.
-- [ ] 8.2 Validate each alias independently. repo-01, repo-02, and repo-03 are PASS.
+- [ ] 8.2 Validate each alias independently. repo-01, repo-02, and repo-03 are PASS; repo-04 generic path PASS but requires dedicated-adapter revalidation.
 - [ ] 8.3 Confirm each target's package manager/runtime assumptions. repo-01, repo-02, and repo-03 are confirmed Node 22 + npm.
 - [ ] 8.4 Confirm each target's supported CI stages. repo-01, repo-02, and repo-03 are confirmed canonical `check:ci`.
 - [ ] 8.5 Confirm content-heavy targets use safe aggregate-only logging.
@@ -138,3 +138,11 @@ Runtime configuration is complete. repo-01 and repo-02 have both passed end-to-e
 - [x] Sanitized summary only; no private-generated Job Summary content.
 - [x] No known private repository name hit in fetched job log.
 - [x] Artifact count 0.
+
+## Rollout checkpoint — repo-04 run #8
+
+- [x] Generic read-only checkout / Node 22 / npm / `check:ci` path PASS.
+- [x] Sanitized log review PASS; zero artifacts; no known private repository name hits.
+- [x] Compare against the target's original private CI and identify coverage gap: package-level `check:ci` alone does not represent ShellCheck, governance, architecture, skill routing/audit, and spec-governance gates.
+- [x] Add a dedicated public-safe `repo-04` adapter that mirrors the read-only validation gates without deployment, PR classification, or artifact upload.
+- [ ] Re-run repo-04 using the dedicated adapter and resolve any runner/tooling compatibility gaps.
