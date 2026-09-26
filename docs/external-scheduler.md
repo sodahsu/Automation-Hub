@@ -2,7 +2,7 @@
 
 GitHub Actions 的 `schedule` 在本儲存庫已多次出現「workflow 本身可由 push / workflow_dispatch 正常執行，但沒有收到任何 `event: schedule`」的情況。
 
-因此準備一條外部排程備援：外部服務每 15 分鐘只負責呼叫 Public `Automation-Hub` 的 `workflow_dispatch`。Detector 本身仍在 Automation-Hub 內執行，六個 private repositories 的名稱、mapping、read-only credential 與 CI 邏輯都不會交給外部服務。
+因此使用外部排程備援：外部服務只負責呼叫 Public `Automation-Hub` 的 `workflow_dispatch`。**目標 cadence 是每 15 分鐘；截至 2026-09-27 live GitHub Actions timestamps 仍約每 5 分鐘，runtime 切換尚未完成。**Detector 本身仍在 Automation-Hub 內執行，六個 private repositories 的名稱、mapping、read-only credential 與 CI 邏輯都不會交給外部服務。
 
 ## GitHub endpoint
 
@@ -44,7 +44,7 @@ Authorization: Bearer <專用 token>
 
 ## cron-job.org 建議設定
 
-cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可作為目前的 5 分鐘備援。
+cron-job.org 支援 HTTPS、POST request、custom headers 與 request body。本 change 的**目標標準 cadence**為每 15 分鐘；live runtime 在驗收通過前不得宣稱已套用。
 
 設定：
 
@@ -63,6 +63,20 @@ cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可
 ~~~text
 0,15,30,45
 ~~~
+
+
+## Runtime 驗收規則
+
+Repository 內的 README / OpenSpec 更新只代表 cadence contract 已準備完成，**不代表** cron-job.org runtime 已經切換成功。
+
+只有同時滿足以下條件，才可宣稱 15 分鐘 cadence 已在 runtime 生效：
+
+1. cron-job.org 的 minutes 設為 `0,15,30,45`。
+2. GitHub Actions 至少出現三個連續 `Detect Private Repository Changes` 的 `workflow_dispatch` runs。
+3. 相鄰 run 的時間間隔符合約 15 分鐘。
+4. Detector 仍維持只 dispatch 有新 push 的 alias，沒有恢復固定六倉全跑。
+
+若 live runs 仍約每 5 分鐘出現，migration 必須保持 pending；不得以文件或 spec 已更新作為完成證據。
 
 ## 驗收
 
