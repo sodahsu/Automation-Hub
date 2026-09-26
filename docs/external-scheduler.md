@@ -2,7 +2,7 @@
 
 GitHub Actions 的 `schedule` 在本儲存庫已多次出現「workflow 本身可由 push / workflow_dispatch 正常執行，但沒有收到任何 `event: schedule`」的情況。
 
-因此準備一條外部排程備援：外部服務每 15 分鐘只負責呼叫 Public `Automation-Hub` 的 `workflow_dispatch`。Detector 本身仍在 Automation-Hub 內執行，六個 private repositories 的名稱、mapping、read-only credential 與 CI 邏輯都不會交給外部服務。
+因此使用外部排程備援：外部服務只負責呼叫 Public `Automation-Hub` 的 `workflow_dispatch`。**目標 cadence 是每 15 分鐘；截至 2026-09-27 live GitHub Actions timestamps 仍約每 5 分鐘，runtime 切換尚未完成。**Detector 本身仍在 Automation-Hub 內執行，六個 private repositories 的名稱、mapping、read-only credential 與 CI 邏輯都不會交給外部服務。
 
 ## GitHub endpoint
 
@@ -44,7 +44,7 @@ Authorization: Bearer <專用 token>
 
 ## cron-job.org 建議設定
 
-cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，目前標準 cadence 為每 15 分鐘。
+cron-job.org 支援 HTTPS、POST request、custom headers 與 request body。本 change 的**目標標準 cadence**為每 15 分鐘；live runtime 在驗收通過前不得宣稱已套用。
 
 設定：
 
