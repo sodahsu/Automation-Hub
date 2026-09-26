@@ -15,7 +15,7 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 
 ~~~text
 手動 workflow_dispatch
-或每 15 分鐘 change detector
+或 external change detector（目標每 15 分鐘；目前 live 仍約 5 分鐘）
             |
             v
 repo-01 .. repo-06          僅公開 alias
@@ -117,11 +117,11 @@ private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍�
 
 PR 模式假設 PR 程式碼與 default branch 同樣可信（同一 owner 與其 AI 代理）；若日後接受外部貢獻者的 PR，必須重新評估，因為 PR 程式碼會在持有 read token 的 job 中執行。
 
-## 每 15 分鐘偵測 private repo 變更
+## Private repo 變更偵測（目標 15 分鐘；runtime pending）
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
-喚醒來源：外部 scheduler（cron-job.org）每 15 分鐘呼叫 detector 的 `workflow_dispatch`，設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
+喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。本 change 的目標是每 15 分鐘，但截至 2026-09-27 live Actions timestamps 仍顯示約每 5 分鐘喚醒；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
 
 Detector 不會固定重跑六倉，而是：
 
