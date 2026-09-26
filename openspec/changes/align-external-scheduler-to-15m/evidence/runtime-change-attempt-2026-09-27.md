@@ -24,12 +24,14 @@ GitHub Actions 在嘗試後仍維持約 5 分鐘 cadence：
 
 ## Latest observed live cadence
 
-稽核再次確認最新 detector runs 仍維持約 5 分鐘：
+2026-09-27 再次稽核，detector 仍維持約 5 分鐘：
 
-| Run | created_at (UTC) | Conclusion |
-|---|---|---|
-| #352 / `36255377610` | 2026-09-26T16:25:05Z | success |
-| #353 / `36255684025` | 2026-09-26T16:30:16Z | success |
-| #354 / `36255974546` | 2026-09-26T16:35:05Z | success |
+| Run | created_at (UTC) | 台北時間 | Conclusion |
+|---|---|---|---|
+| #364 / `36258949248` | 2026-09-26T17:25:06Z | 2026-09-27 01:25:06 | success |
+| #365 / `36259254209` | 2026-09-26T17:30:16Z | 2026-09-27 01:30:16 | success |
+| #366 / `36259542825` | 2026-09-26T17:35:05Z | 2026-09-27 01:35:05 | success |
 
-相鄰間隔仍約 5 分鐘，因此 runtime migration 持續為 pending。
+#367 於 17:40:08Z 又被喚醒（查詢時仍在執行），進一步證明 external scheduler 尚未切換到 15 分鐘 cadence。
+
+因此 runtime migration 持續為 `pending`。
