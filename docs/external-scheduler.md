@@ -1,8 +1,8 @@
-# 外部 5 分鐘排程備援
+# 外部 15 分鐘排程備援
 
 GitHub Actions 的 `schedule` 在本儲存庫已多次出現「workflow 本身可由 push / workflow_dispatch 正常執行，但沒有收到任何 `event: schedule`」的情況。
 
-因此準備一條外部排程備援：外部服務每 5 分鐘只負責呼叫 Public `Automation-Hub` 的 `workflow_dispatch`。Detector 本身仍在 Automation-Hub 內執行，六個 private repositories 的名稱、mapping、read-only credential 與 CI 邏輯都不會交給外部服務。
+因此準備一條外部排程備援：外部服務每 15 分鐘只負責呼叫 Public `Automation-Hub` 的 `workflow_dispatch`。Detector 本身仍在 Automation-Hub 內執行，六個 private repositories 的名稱、mapping、read-only credential 與 CI 邏輯都不會交給外部服務。
 
 ## GitHub endpoint
 
@@ -51,7 +51,7 @@ cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可
 - Title：`Automation-Hub detector`
 - URL：上述 GitHub endpoint
 - Method：`POST`
-- Schedule：每 5 分鐘
+- Schedule：每 15 分鐘
 - Timezone：UTC
 - Save response：Off
 - Failure notification：On
@@ -61,7 +61,7 @@ cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可
 建議 minutes：
 
 ~~~text
-0,5,10,15,20,25,30,35,40,45,50,55
+0,15,30,45
 ~~~
 
 ## 驗收
@@ -86,6 +86,6 @@ External scheduler 已於 2026-09-25 完成完整鏈路驗證，GitHub 原生 `s
 
 1. GitHub token 設定頁按 Regenerate。**舊 token 會立即失效**，從這一刻起到 cron-job.org 存檔前的喚醒都會 401。
 2. 立刻在 cron-job.org 該 job 的 ADVANCED 頁，把 `Authorization` 的 Value 換成 `Bearer <新 token>`，按 SAVE。以手動貼上為準；該頁面不接受瀏覽器自動化工具直接改值。
-3. 等下一輪 5 分鐘，確認 Automation-Hub 出現新的 `workflow_dispatch` detector run 且 success。
+3. 等下一輪 15 分鐘，確認 Automation-Hub 出現新的 `workflow_dispatch` detector run 且 success。
 
 中斷期間漏掉的喚醒不需補跑：detector 恢復後第一輪會以 `pushed_at` 補抓所有未涵蓋的 push。cron-job.org 的 Failure notification 必須維持 On，因為 token 失效時 GitHub 端不會產生任何告警。
