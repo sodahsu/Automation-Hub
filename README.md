@@ -7,14 +7,14 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 目前支援三種執行方式：
 
 - **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
-- **每 15 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
+- **變更偵測**：目標 cadence 為每 15 分鐘；截至 2026-09-27 live external scheduler 仍約每 5 分鐘喚醒，runtime migration 尚未完成。只有偵測到 private repo 有新的 push activity才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
 ## 架構
 
 ~~~text
 手動 workflow_dispatch
-或每 15 分鐘 change detector
+或 external change detector（目標每 15 分鐘；目前 live 仍約 5 分鐘）
             |
             v
 repo-01 .. repo-06          僅公開 alias
@@ -85,11 +85,11 @@ private repository           僅在 runtime 解析
 
 目前 bridge 一律檢查 private target 的 default branch，避免把 private branch/ref 名稱暴露為 Public workflow input。
 
-## 每 15 分鐘偵測 private repo 變更
+## Private repo 變更偵測（目標 15 分鐘；runtime pending）
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
-喚醒來源：外部 scheduler（cron-job.org）每 15 分鐘呼叫 detector 的 `workflow_dispatch`，設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
+喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。本 change 的目標是每 15 分鐘，但截至 2026-09-27 live Actions timestamps 仍顯示約每 5 分鐘喚醒；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
 
 Detector 不會固定重跑六倉，而是：
 
