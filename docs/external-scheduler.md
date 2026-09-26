@@ -44,7 +44,7 @@ Authorization: Bearer <專用 token>
 
 ## cron-job.org 建議設定
 
-cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可作為目前的 5 分鐘備援。
+cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，目前標準 cadence 為每 15 分鐘。
 
 設定：
 
@@ -63,6 +63,20 @@ cron-job.org 支援 HTTPS、POST request、custom headers 與 request body，可
 ~~~text
 0,15,30,45
 ~~~
+
+
+## Runtime 驗收規則
+
+Repository 內的 README / OpenSpec 更新只代表 cadence contract 已準備完成，**不代表** cron-job.org runtime 已經切換成功。
+
+只有同時滿足以下條件，才可宣稱 15 分鐘 cadence 已在 runtime 生效：
+
+1. cron-job.org 的 minutes 設為 `0,15,30,45`。
+2. GitHub Actions 至少出現三個連續 `Detect Private Repository Changes` 的 `workflow_dispatch` runs。
+3. 相鄰 run 的時間間隔符合約 15 分鐘。
+4. Detector 仍維持只 dispatch 有新 push 的 alias，沒有恢復固定六倉全跑。
+
+若 live runs 仍約每 5 分鐘出現，migration 必須保持 pending；不得以文件或 spec 已更新作為完成證據。
 
 ## 驗收
 
