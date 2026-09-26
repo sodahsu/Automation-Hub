@@ -1,0 +1,23 @@
+# Runtime change attempt — 2026-09-27
+
+## Attempt
+
+嘗試開啟 cron-job.org 的 `Automation-Hub detector` job，目標只修改 cadence 為 UTC `0,15,30,45`，明確禁止修改 URL、HTTP method、request body、custom headers、Authorization token、failure notification 與其他 job 設定。
+
+## Result
+
+Browser automation 被 cron-job.org 導向登入頁。此執行環境沒有保存 cron-job.org 帳號憑證，因此沒有進入 job list，也沒有修改任何 runtime configuration。
+
+Status：`blocked-authentication / no-change`
+
+## Post-attempt live evidence
+
+GitHub Actions 在嘗試後仍維持約 5 分鐘 cadence：
+
+| Run ID | created_at (UTC) | 台北時間 | Event | Conclusion |
+|---|---|---|---|---|
+| `36255079748` | 2026-09-26T16:20:08Z | 2026-09-27 00:20:08 | `workflow_dispatch` | success |
+| `36254784993` | 2026-09-26T16:15:09Z | 2026-09-27 00:15:09 | `workflow_dispatch` | success |
+| `36254486195` | 2026-09-26T16:10:09Z | 2026-09-27 00:10:09 | `workflow_dispatch` | success |
+
+因此 `tasks.md` 的 runtime cadence 切換與 15 分鐘 live acceptance 仍必須保持未完成。
