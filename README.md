@@ -7,14 +7,14 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 目前支援三種執行方式：
 
 - **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
-- **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
+- **每 15 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
 ## 架構
 
 ~~~text
 手動 workflow_dispatch
-或每 5 分鐘 change detector
+或每 15 分鐘 change detector
             |
             v
 repo-01 .. repo-06          僅公開 alias
@@ -85,7 +85,7 @@ private repository           僅在 runtime 解析
 
 目前 bridge 一律檢查 private target 的 default branch，避免把 private branch/ref 名稱暴露為 Public workflow input。
 
-## 每 5 分鐘偵測 private repo 變更
+## 每 15 分鐘偵測 private repo 變更
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
@@ -216,6 +216,6 @@ Cleanup 階段會刪除所有暫存 command files，最後只發布 Hub 自己�
 目前主要變更：
 
 - `openspec/changes/public-ci-automation-hub/` — Phase 1 唯讀 CI 復原與六倉 rollout。
-- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 5 分鐘 private change detector 與 Hub-code regression trigger。
+- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 15 分鐘 private change detector 與 Hub-code regression trigger。
 
 實作需同時遵守兩個 change 中的安全、遷移與驗證規則。
