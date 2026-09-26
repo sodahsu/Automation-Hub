@@ -7,4 +7,5 @@
 - [ ] 取得至少三個連續 `workflow_dispatch` detector runs 的 live timestamps，確認約 15 分鐘間隔。目前 live runs 仍約每 5 分鐘，migration pending。
 - [x] 確認 change detector 仍只 dispatch 有變更的 alias，且 private access / sanitized log policy 無變動（branch diff 未修改 workflow / adapter）。
 - [ ] 執行 OpenSpec strict validation 與 repository checks。
-- [ ] independent review 後開 draft PR；runtime evidence 未完成前不得宣稱 migration complete，也不得自動 merge。
+- [x] 開立 Draft PR #2。
+- [ ] 完成 independent review；目前 review count = 0。runtime evidence 未完成前不得宣稱 migration complete，也不得 merge。
