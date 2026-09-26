@@ -21,3 +21,15 @@ GitHub Actions 在嘗試後仍維持約 5 分鐘 cadence：
 | `36254486195` | 2026-09-26T16:10:09Z | 2026-09-27 00:10:09 | `workflow_dispatch` | success |
 
 因此 `tasks.md` 的 runtime cadence 切換與 15 分鐘 live acceptance 仍必須保持未完成。
+
+## Latest observed live cadence
+
+稽核再次確認最新 detector runs 仍維持約 5 分鐘：
+
+| Run | created_at (UTC) | Conclusion |
+|---|---|---|
+| #352 / `36255377610` | 2026-09-26T16:25:05Z | success |
+| #353 / `36255684025` | 2026-09-26T16:30:16Z | success |
+| #354 / `36255974546` | 2026-09-26T16:35:05Z | success |
+
+相鄰間隔仍約 5 分鐘，因此 runtime migration 持續為 pending。
