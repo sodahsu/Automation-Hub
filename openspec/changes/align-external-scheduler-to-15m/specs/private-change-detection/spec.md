@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: Private repository 變更偵測 MUST 每 5 分鐘執行`
+- TO: `### Requirement: Private repository 變更偵測 MUST 每 15 分鐘執行`
+
 ## MODIFIED Requirements
 
 ### Requirement: Private repository 變更偵測 MUST 每 15 分鐘執行
