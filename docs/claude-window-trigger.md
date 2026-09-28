@@ -29,7 +29,7 @@ Scheduled run 預設只會 dry-run。沒有設定以下 variable 時，不會呼
 
 `CLAUDE_CODE_OAUTH_TOKEN`
 
-Claude Pro / Max 使用者可在本機 Claude Code 依 Anthropic 官方流程產生 OAuth token，再存入 GitHub Actions Secret。
+Claude 訂閱使用者可在本機透過 `claude setup-token` 產生長效 OAuth token，再存入 GitHub Actions Secret。
 
 本 workflow 不使用 `ANTHROPIC_API_KEY`。若 repository 中存在該 Secret，live preflight 會主動拒絕執行，避免意外走 API PAYG。
 
@@ -49,7 +49,11 @@ Claude Pro / Max 使用者可在本機 Claude Code 依 Anthropic 官方流程產
 
 - Model: `claude-haiku-4-5-20251001`
 - Prompt: `Reply exactly: OK`
+- System prompt: `Reply exactly: OK`
 - Max turns: 1
+- Claude Code mode: `--bare`
+- Built-in tools: 全部停用（`--tools ""`）
+- MCP tools: 全部拒絕（`--disallowedTools "mcp__*"`）
 - Repository checkout: 無
 - Artifact: 無
 - Retry loop: 無
