@@ -22,7 +22,11 @@ Claude 07:00 Wake 的目的，是在本機 Mac、Orca 與 self-hosted runner 都
 - 不加入多階段 wake、模型調度、queue 或 retry loop。
 - 不讀取或修改六個 private repositories。
 
-## Decisions
+## Technical Approach
+
+GitHub Actions 以每日排程建立 GitHub-hosted Ubuntu job，先以唯讀方式 checkout repository，再透過固定 SHA 的 Claude Code Action 使用 repository secret 中的 OAuth credential 發送單回合請求。OIDC 僅用於 action 的身分交換；workflow 不持有 repository content write 權限，也不建立 retry、Agent 或後續派工。
+
+## Architecture Decisions
 
 ### 1. 使用 GitHub-hosted runner
 
