@@ -1,0 +1,38 @@
+name: Claude 07:00 Wake
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+      timezone: "Asia/Taipei"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-0700-wake
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    name: Minimal Claude wake
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Trigger Claude for piscean0619
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_PISCEAN0619_OAUTH_TOKEN }}
+          prompt: |
+            Reply exactly: OK
+            Do not inspect files, use tools, modify the repository, or perform any other task.
+          claude_args: |
+            --model claude-haiku-4-5
+            --max-turns 1
