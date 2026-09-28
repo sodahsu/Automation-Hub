@@ -71,7 +71,7 @@ Wake workflow 使用的第三方 GitHub Actions **MUST** 固定到 40 字元 imm
 
 ### Requirement: Wake MUST NOT 被定義為 Claude 額度 reset 保證
 
-本功能的契約只涵蓋「建立一次有效 Claude request」，不得把 Claude usage window 或 reset time 視為由本 workflow 可控制的保證行為。
+本功能 **MUST** 只把「建立一次有效 Claude request」視為契約；系統不得把 Claude usage window 或 reset time 視為由本 workflow 可控制的保證行為。
 
 #### Scenario: 07:00 wake 成功
 
