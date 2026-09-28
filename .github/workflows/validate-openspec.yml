@@ -35,4 +35,4 @@ jobs:
           package-manager-cache: false
 
       - name: 執行 OpenSpec strict validation
-        run: npx --yes @fission-ai/openspec@1.8.0 validate --all --strict
+        run: npx --yes @fission-ai/openspec@1.8.0 validate --all --strict --json
