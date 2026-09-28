@@ -15,16 +15,27 @@
 - 在驗證身分或解析目標儲存庫的步驟中，不得使用 `set -x`。
 - 不得快取 `workspace/`、私有原始碼目錄、`.env` 檔、憑證，或任何包含私有原始碼內容的 bundle。
 
+## Runner 邊界
+
+- 取得 private source 的 `private-ci.yml` 只能使用 GitHub Settings allow-list 的受控 runner group 與 `private-ci` label。
+- 不得使用裸 `self-hosted` 作為 fallback，也不得把 runner 註冊到 Public Hub 以外的 source repository 或一般 cloud-agent workflow。
+- `private-ci.yml` 只能從 Automation-Hub `main` 或受控手動 dispatch 執行；不接受 `pull_request` / `pull_request_target` 事件。
+- Runner registration/JIT token 不進 repository、Actions secret、Issue、PR、log 或 artifact；registration 由受控主機管理。
+- Runner offline 時 job 只能 queued/unavailable，不得改排 GitHub-hosted runner。
+- self-hosted runner 每次執行都必須清除 workspace、`.git` metadata、askpass、command files、raw logs、archive、PR metadata 與 temporary output。
+
 ## Workflow 限制
 
-公開 CI workflow 不得：
+Private CI workflow 不得：
 
 - 對私有目標儲存庫執行 push、tag、merge 或建立 branch；
 - 執行 production deployment；
 - 建立、輪替或修改私密設定；
 - 修改儲存庫 visibility、billing 或 branch protection；
 - 搭配私有儲存庫憑證使用 `pull_request_target`；
-- 將私有儲存庫 checkout 內容上傳為 Artifact。
+- 將私有儲存庫 checkout 內容上傳為 Artifact；
+- 將 private read token、Hub dispatch token 或 runner registration token 傳入 target CI；
+- 把 `PR CI — ` 結果當成 `CI — ` default baseline evidence。
 
 ## 事件處理
 

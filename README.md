@@ -2,12 +2,13 @@
 
 公開、唯讀的私有儲存庫 CI 協調中心。
 
-Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提下，改由 Public GitHub-hosted runner 執行 CI 與健康檢查。所有 private repo 存取都維持唯讀，公開輸出只保留經過清理的狀態摘要，production deployment 不在本專案範圍內。
+Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提下，由受控的 `private-ci` self-hosted runner 執行 CI 與健康檢查。Public GitHub-hosted runner 只執行不接觸 private source 的安全審查與 OpenSpec 驗證。所有 private repo 存取都維持唯讀，公開輸出只保留經過清理的狀態摘要，production deployment 不在本專案範圍內。
 
-目前支援三種執行方式：
+目前支援四種執行方式：
 
-- **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
-- **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
+- **手動 baseline 執行**：從 Actions 選擇 `repo-01`～`repo-06`，在 `private-ci` runner 執行 default-branch CI。
+- **手動 PR exact-SHA 執行**：目前只支援 `repo-04`，以 PR number 解析同 repository、default-base 的 open PR head。
+- **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias；detector 只觸發 baseline mode。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
 ## 架構
@@ -17,13 +18,16 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 或每 5 分鐘 change detector
             |
             v
-repo-01 .. repo-06          僅公開 alias
+受控 `private-ci` runner      不使用 Public hosted runner
             |
             v
-PRIVATE_REPOS_JSON           GitHub Secret
+repo-01 .. repo-06             僅公開 alias
             |
             v
-private repository           僅在 runtime 解析
+PRIVATE_REPOS_JSON             GitHub Secret
+            |
+            v
+private repository             僅在 runtime 解析
             |
             |  PRIVATE_REPOS_READ_TOKEN
             v
@@ -51,8 +55,9 @@ private repository           僅在 runtime 解析
 
 - Contents：Read-only
 - Metadata：Read
+- Pull requests：Read（只供 `pr-exact-sha` mode 讀取 PR metadata）
 
-不要授予 private repo write 權限。
+不要授予 private repo write 權限。Runner registration token 是另一組只存在受控主機的 credential，不放進此 secret。
 
 ### `PRIVATE_REPOS_JSON`
 
@@ -75,15 +80,18 @@ private repository           僅在 runtime 解析
 
 ## 手動執行 CI
 
+執行前必須先完成 `docs/private-runner-setup.md` 的受控 runner、runner group 與 `private-ci` label 設定。
+
 1. 開啟 **Actions**。
 2. 選擇 **Private CI Bridge (read-only)**。
 3. 點 **Run workflow**。
-4. 選擇 `repo-01`～`repo-06`。
-5. 執行。
+4. 選擇 `repo-01`～`repo-06` 與 `mode`。
+5. baseline mode 留空 `pr_number`；PR exact-SHA mode 目前只接受 `repo-04` 與正整數 PR number。
+6. 執行。
 
-手動模式只執行所選的一個 alias。
+手動模式只執行所選的一個 alias。Runner offline 時保持 queued/unavailable，不會回退到 `ubuntu-latest`。
 
-目前 bridge 一律檢查 private target 的 default branch，避免把 private branch/ref 名稱暴露為 Public workflow input。
+baseline mode 檢查 private target 的 default branch。PR exact-SHA mode 只接受 same-repository、open、default-base PR，並在執行前後驗證 head 穩定；不接受 caller-provided branch/ref/SHA，也不支援 fork PR。
 
 ## 每 5 分鐘偵測 private repo 變更
 
@@ -104,7 +112,7 @@ Detector 不會固定重跑六倉，而是：
 
 因為採用 repository-level `pushed_at`，其他 branch 的 push 可能造成一次額外 default-branch CI；這是刻意採用的保守策略。
 
-**Hub CI 綠燈的意思是「該 repo 的 default branch 健康」，不代表剛 push 的 feature branch 通過。** 分支與 PR 驗證由各 private repo 自己的 CI 負責；Hub CI 定位為六倉 default branch 的健康監控。
+**`CI — repo-xx` 綠燈的意思是「該 repo 的 default branch 健康」，不代表 feature branch 或 PR 通過。** `PR CI — repo-04` 是人工觸發的 PR exact-SHA fallback evidence，不能被 default baseline collector 當成 baseline-green；PR merge 仍需依 target repo 的 review／approval contract 判斷。
 
 ## Hub 自身的六倉 regression
 

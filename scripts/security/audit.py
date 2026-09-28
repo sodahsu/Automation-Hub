@@ -53,6 +53,22 @@ require("set -x" not in detector, "detector 禁止 set -x")
 require("set -x" not in run_ci, "run-ci.sh 禁止 set -x")
 require("GITHUB_STEP_SUMMARY" in private_ci and "GITHUB_OUTPUT" in private_ci and "GITHUB_ENV" in private_ci and "GITHUB_PATH" in private_ci,
         "private-ci.yml 必須保留 GitHub command-file isolation")
+require("runs-on: [self-hosted, private-ci]" in private_ci,
+        "private-ci.yml 必須固定到受控 self-hosted private-ci runner")
+require("ubuntu-latest" not in private_ci,
+        "private-ci.yml 不得把 private source CI 排回 GitHub-hosted runner")
+require("Require reviewed Hub main ref" in private_ci,
+        "private-ci.yml 必須先驗證 reviewed Hub main ref")
+require("pr-exact-sha" in private_ci and "pulls/${PR_NUMBER}" in private_ci,
+        "private-ci.yml 必須具備受限 PR exact-SHA request path")
+require("private-pr-head.sha" in private_ci and "steps.pr_stability.outcome" in private_ci,
+        "private-ci.yml 必須保存並驗證 PR head stability")
+require("PR CI — " in private_ci,
+        "private-ci.yml 必須以獨立 prefix 區分 PR evidence")
+require("private-repo.tar.gz" in private_ci and "private-repo-*.json" in private_ci,
+        "private-ci.yml 必須 cleanup archive 與 PR metadata")
+require("pull_request_target:" not in private_ci and "pull_request:" not in private_ci,
+        "private-ci.yml 不得由 untrusted PR event 觸發 private CI")
 
 # Scan text files for common token prefixes without embedding the literal prefix in source.
 forbidden_prefixes = ["gh" + "p_", "github" + "_pat_"]

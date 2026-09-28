@@ -20,22 +20,35 @@ on:
           - repo-04
           - repo-05
           - repo-06
+      mode:
+        description: CI provenance mode
+        required: false
+        default: baseline
+        type: choice
+        options:
+          - baseline
+          - pr-exact-sha
+      pr_number:
+        description: Open PR number for repo-04 pr-exact-sha mode
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   ci:
-    name: CI — ${{ matrix.target }}
+    name: ${{ inputs.mode == 'pr-exact-sha' && 'PR CI — ' || 'CI — ' }}${{ matrix.target }}
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 1
       matrix:
         target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.target) || '["repo-01","repo-02","repo-03","repo-04","repo-05","repo-06"]') }}
     concurrency:
-      group: private-ci-${{ matrix.target }}
+      group: private-ci-${{ matrix.target }}-${{ inputs.mode || 'baseline' }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, private-ci]
     timeout-minutes: 60
 
     steps:
@@ -43,6 +56,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Require reviewed Hub main ref
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "${WORKFLOW_REF}" != "refs/heads/main" ]]; then
+            echo "::error title=Unreviewed workflow ref::Private CI may run only from Automation-Hub main."
+            exit 1
+          fi
 
       - name: Preflight required secrets
         env:
@@ -69,6 +92,8 @@ jobs:
       - name: Resolve and clone private target
         env:
           TARGET_ALIAS: ${{ matrix.target }}
+          TARGET_MODE: ${{ inputs.mode || 'baseline' }}
+          PR_NUMBER: ${{ inputs.pr_number || '' }}
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
           GH_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
         run: |
@@ -81,12 +106,86 @@ jobs:
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
           fi
+          if [[ "${TARGET_MODE}" != "baseline" && "${TARGET_MODE}" != "pr-exact-sha" ]]; then
+            echo "::error title=Invalid CI mode::Unsupported private CI mode."
+            exit 1
+          fi
+          if [[ "${TARGET_MODE}" == "pr-exact-sha" && "${TARGET_ALIAS}" != "repo-04" ]]; then
+            echo "::error title=Unsupported PR mode target::PR exact-SHA mode is currently limited to repo-04."
+            exit 1
+          fi
+          if [[ "${TARGET_MODE}" == "baseline" && -n "${PR_NUMBER}" ]]; then
+            echo "::error title=Invalid CI request::A PR number requires pr-exact-sha mode."
+            exit 1
+          fi
+          if [[ "${TARGET_MODE}" == "pr-exact-sha" && ! "${PR_NUMBER}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error title=Invalid PR request::PR exact-SHA mode requires a positive numeric PR number."
+            exit 1
+          fi
 
           echo "::add-mask::${private_repo}"
 
+          api_headers=(
+            --header "Accept: application/vnd.github+json"
+            --header "Authorization: Bearer ${GH_TOKEN}"
+            --header "X-GitHub-Api-Version: 2026-03-10"
+          )
+          metadata="${RUNNER_TEMP}/private-repo-metadata.json"
+          metadata_code="$(curl --silent --show-error --location \
+            --output "${metadata}" \
+            --write-out "%{http_code}" \
+            "${api_headers[@]}" \
+            "https://api.github.com/repos/${private_repo}")"
+          if [[ "${metadata_code}" != "200" ]]; then
+            rm -f "${metadata}"
+            echo "::error title=Private repository metadata unavailable::Read-only metadata request failed."
+            exit 1
+          fi
+
+          default_branch="$(jq -r '.default_branch // empty' "${metadata}")"
+          if [[ -z "${default_branch}" ]]; then
+            rm -f "${metadata}"
+            echo "::error title=Private repository metadata invalid::The target default branch is unavailable."
+            exit 1
+          fi
+
+          target_ref="${default_branch}"
+          pr_metadata=""
+          if [[ "${TARGET_MODE}" == "pr-exact-sha" ]]; then
+            pr_metadata="${RUNNER_TEMP}/private-repo-pr-${PR_NUMBER}.json"
+            pr_code="$(curl --silent --show-error --location \
+              --output "${pr_metadata}" \
+              --write-out "%{http_code}" \
+              "${api_headers[@]}" \
+              "https://api.github.com/repos/${private_repo}/pulls/${PR_NUMBER}")"
+            pr_state="$(jq -r '.state // empty' "${pr_metadata}")"
+            merged_at="$(jq -r '.merged_at // empty' "${pr_metadata}")"
+            base_repo="$(jq -r '.base.repo.full_name // empty' "${pr_metadata}")"
+            base_ref="$(jq -r '.base.ref // empty' "${pr_metadata}")"
+            head_repo="$(jq -r '.head.repo.full_name // empty' "${pr_metadata}")"
+            head_sha="$(jq -r '.head.sha // empty' "${pr_metadata}")"
+            if [[ "${pr_code}" != "200" || "${pr_state}" != "open" || -n "${merged_at}" \
+              || "${base_repo}" != "${private_repo}" || "${base_ref}" != "${default_branch}" \
+              || "${head_repo}" != "${private_repo}" || ! "${head_sha}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              rm -f "${metadata}" "${pr_metadata}"
+              echo "::error title=Invalid PR request::The PR must be open, same-repository, and target the default branch."
+              exit 1
+            fi
+            target_ref="${head_sha}"
+            echo "::add-mask::${target_ref}"
+            printf '%s' "${target_ref}" > "${RUNNER_TEMP}/private-pr-head.sha"
+            chmod 600 "${RUNNER_TEMP}/private-pr-head.sha"
+          fi
+
+          rm -f "${metadata}"
+          [[ -z "${pr_metadata}" ]] || rm -f "${pr_metadata}"
           rm -rf workspace
 
           if [[ "${TARGET_ALIAS}" == "repo-06" ]]; then
+            if [[ "${TARGET_MODE}" == "pr-exact-sha" ]]; then
+              echo "::error title=Unsupported PR mode target::repo-06 remains default-branch-only until its sparse PR checkout is reviewed."
+              exit 1
+            fi
             # repo-06 is large. Match its private Vault Health sparse checkout
             # instead of downloading the full repository archive.
             askpass="${RUNNER_TEMP}/automation-hub-git-askpass.sh"
@@ -98,48 +197,32 @@ jobs:
               '  *) exit 1 ;;' \
               'esac' > "${askpass}"
             chmod 700 "${askpass}"
-
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
               git clone --depth 1 --filter=blob:none --sparse --no-tags \
               "https://github.com/${private_repo}.git" workspace
-
-            # Partial clone may lazily fetch blobs while materializing the sparse
-            # checkout, so keep read-only auth only for this one fetch-capable step.
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
               git -C workspace sparse-checkout set \
               .agents .claude 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive
-
             rm -f "${askpass}"
-
-            # Keep local Git metadata because Vault Health uses git ls-files,
-            # but remove every remote so later CI has no repository write path.
             git -C workspace remote remove origin || true
             git -C workspace config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-            echo "Private target sparse checkout completed with read-only Git access."
+            echo "Private target ${TARGET_MODE} sparse checkout completed with read-only Git access."
           else
             mkdir -p workspace
-
-            # Phase 1 is strictly read-only. Use the repository archive API, which
-            # requires only Contents: Read for a fine-grained PAT.
             archive="${RUNNER_TEMP}/private-repo.tar.gz"
             http_code="$(curl --silent --show-error --location \
               --output "${archive}" \
               --write-out "%{http_code}" \
-              --header "Accept: application/vnd.github+json" \
-              --header "Authorization: Bearer ${GH_TOKEN}" \
-              --header "X-GitHub-Api-Version: 2026-03-10" \
-              "https://api.github.com/repos/${private_repo}/tarball")"
-
+              "${api_headers[@]}" \
+              "https://api.github.com/repos/${private_repo}/tarball/${target_ref}")"
             if [[ "${http_code}" != "200" ]]; then
               rm -f "${archive}"
-              echo "::error title=Private repository access denied::Read-only archive request returned HTTP ${http_code}. Verify the fine-grained token includes this repository and Contents: Read."
+              echo "::error title=Private repository access denied::Read-only archive request failed."
               exit 1
             fi
-
             tar -xzf "${archive}" -C workspace --strip-components=1
             rm -f "${archive}"
-
-            echo "Private target checkout completed with read-only archive access."
+            echo "Private target ${TARGET_MODE} checkout completed with read-only archive access."
           fi
 
       - name: Set up Node 20 runtime for repo-05
@@ -180,15 +263,47 @@ jobs:
 
           bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${{ matrix.target }}"
 
+      - name: Verify private PR head stability
+        id: pr_stability
+        if: ${{ inputs.mode == 'pr-exact-sha' }}
+        continue-on-error: true
+        env:
+          TARGET_ALIAS: ${{ matrix.target }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          GH_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
+          echo "::add-mask::${private_repo}"
+          expected_sha="$(tr -d '\\r\\n' < "${RUNNER_TEMP}/private-pr-head.sha")"
+          metadata="${RUNNER_TEMP}/private-repo-pr-after.json"
+          http_code="$(curl --silent --show-error --location \
+            --output "${metadata}" \
+            --write-out "%{http_code}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${private_repo}/pulls/${PR_NUMBER}")"
+          current_sha="$(jq -r '.head.sha // empty' "${metadata}")"
+          rm -f "${metadata}"
+          if [[ "${http_code}" != "200" || ! "${current_sha}" =~ ^[0-9a-fA-F]{40}$ || "${current_sha}" != "${expected_sha}" ]]; then
+            echo "::error title=Private PR head changed::The PR head could not be proven stable during validation."
+            exit 1
+          fi
+
       - name: Publish sanitized summary
         if: ${{ always() }}
+        env:
+          TARGET_MODE: ${{ inputs.mode || 'baseline' }}
         run: |
           set -Eeuo pipefail
 
           {
-            echo "## Target"
+            echo "## Private CI"
             echo
-            echo "${{ matrix.target }}"
+            echo "Target alias: ${{ matrix.target }}"
+            echo "Mode: ${TARGET_MODE}"
             echo
           } >> "${GITHUB_STEP_SUMMARY}"
 
@@ -201,13 +316,19 @@ jobs:
       - name: Cleanup private workspace
         if: ${{ always() }}
         run: |
-          set -Eeuo pipefail
+          set +e
           rm -rf workspace
           rm -rf "${RUNNER_TEMP}/private-ci-command-files"
-          rm -f "${RUNNER_TEMP}"/automation-hub-*.log "${RUNNER_TEMP}/ci-summary.md" "${RUNNER_TEMP}/automation-hub-git-askpass.sh" 2>/dev/null || true
+          rm -f "${RUNNER_TEMP}"/automation-hub-*.log \
+            "${RUNNER_TEMP}/ci-summary.md" \
+            "${RUNNER_TEMP}/automation-hub-git-askpass.sh" \
+            "${RUNNER_TEMP}/private-repo-*.json" \
+            "${RUNNER_TEMP}/private-repo.tar.gz" \
+            "${RUNNER_TEMP}/private-pr-head.sha"
+          exit 0
 
       - name: Fail workflow when private CI failed
-        if: ${{ steps.private_ci.outcome == 'failure' }}
+        if: ${{ steps.private_ci.outcome == 'failure' || steps.pr_stability.outcome == 'failure' }}
         run: |
-          echo "::error title=Private CI failed::One or more repository-native CI stages failed."
+          echo "::error title=Private CI failed::One or more repository-native CI stages failed or could not prove the requested revision."
           exit 1
