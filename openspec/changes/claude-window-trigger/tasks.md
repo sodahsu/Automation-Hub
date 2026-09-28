@@ -15,11 +15,12 @@
 - [x] 2.2 Live 只讀取 `CLAUDE_CODE_OAUTH_TOKEN`。
 - [x] 2.3 偵測到 `ANTHROPIC_API_KEY` 時 fail closed。
 - [x] 2.4 不使用 `actions/checkout`。
-- [x] 2.5 固定最短 prompt。
+- [x] 2.5 固定最短 prompt 與最小 system prompt。
 - [x] 2.6 固定 `max-turns=1`。
-- [x] 2.7 禁止常用 Claude Code tools。
-- [x] 2.8 不設定高成本模型 fallback。
-- [x] 2.9 不建立 retry loop。
+- [x] 2.7 使用 `--bare`，並以 `--tools ""` 移除所有 built-in tools。
+- [x] 2.8 以 `--disallowedTools "mcp__*"` 移除所有 MCP tools。
+- [x] 2.9 不設定高成本模型 fallback。
+- [x] 2.10 不建立 retry loop。
 
 ## 3. 文件
 
