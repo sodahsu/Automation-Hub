@@ -1,0 +1,116 @@
+name: Claude Window Trigger
+
+on:
+  schedule:
+    - cron: '7 7,12,17,22 * * *'
+      timezone: 'Asia/Taipei'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Trigger mode'
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-window-trigger
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    name: Minimal Claude window trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Resolve trigger mode
+        id: mode
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_MODE: ${{ inputs.mode }}
+          SCHEDULE_ENABLED: ${{ vars.CLAUDE_WINDOW_TRIGGER_ENABLED }}
+        run: |
+          set -Eeuo pipefail
+
+          mode="dry-run"
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" && "${MANUAL_MODE}" == "live" ]]; then
+            mode="live"
+          elif [[ "${EVENT_NAME}" == "schedule" && "${SCHEDULE_ENABLED}" == "true" ]]; then
+            mode="live"
+          fi
+
+          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Claude Window Trigger"
+            echo
+            echo "- Event: \`${EVENT_NAME}\`"
+            echo "- Mode: \`${mode}\`"
+            echo "- Target model: \`claude-haiku-4-5-20251001\`"
+            echo "- Repository checkout: \`disabled\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Dry run
+        if: steps.mode.outputs.mode == 'dry-run'
+        shell: bash
+        run: |
+          echo "Dry-run only; Claude was not called."
+          echo "- Claude request: \`SKIPPED\`" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Live preflight
+        if: steps.mode.outputs.mode == 'live'
+        shell: bash
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+            echo "::error title=Cost guard::ANTHROPIC_API_KEY is configured. Live trigger refuses API-key fallback."
+            exit 1
+          fi
+
+          if [[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
+            echo "::error title=Missing OAuth::CLAUDE_CODE_OAUTH_TOKEN is required for live mode."
+            exit 1
+          fi
+
+          echo "::add-mask::${CLAUDE_CODE_OAUTH_TOKEN}"
+          echo "- OAuth preflight: \`PASS\`" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Send minimal Claude request
+        id: claude
+        if: steps.mode.outputs.mode == 'live'
+        uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1.0.235
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: 'Reply exactly: OK'
+          display_report: 'false'
+          show_full_output: 'false'
+          claude_args: >-
+            --model claude-haiku-4-5-20251001
+            --max-turns 1
+            --disallowedTools Bash,Read,Write,Edit,Glob,Grep,Task,WebFetch,WebSearch,NotebookEdit
+
+      - name: Record live result
+        if: steps.mode.outputs.mode == 'live' && always()
+        shell: bash
+        env:
+          CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "${CONCLUSION:-}" == "success" ]]; then
+            echo "- Claude request: \`PASS\`" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "- Claude request: \`FAIL\`" >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
