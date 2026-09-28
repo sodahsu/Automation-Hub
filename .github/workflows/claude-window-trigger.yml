@@ -54,7 +54,7 @@ jobs:
             echo
             echo "- Event: \`${EVENT_NAME}\`"
             echo "- Mode: \`${mode}\`"
-            echo "- Target model: \`claude-haiku-4-5-20251001\`"
+            echo "- Target model: \`haiku\`"
             echo "- Repository checkout: \`disabled\`"
           } >> "${GITHUB_STEP_SUMMARY}"
 
@@ -97,8 +97,9 @@ jobs:
           display_report: 'false'
           show_full_output: 'false'
           claude_args: >-
-            --model claude-haiku-4-5-20251001
+            --model haiku
             --max-turns 1
+            --no-session-persistence
             --bare
             --tools ""
             --disallowedTools "mcp__*"
