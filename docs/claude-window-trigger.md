@@ -47,10 +47,11 @@ Claude 訂閱使用者可在本機透過 `claude setup-token` 產生長效 OAuth
 
 ## Live request
 
-- Model: `claude-haiku-4-5-20251001`
+- Model: `haiku`（Claude CLI alias，固定使用 Haiku 級）
 - Prompt: `Reply exactly: OK`
 - System prompt: `Reply exactly: OK`
 - Max turns: 1
+- Session persistence: 關閉（`--no-session-persistence`）
 - Claude Code mode: `--bare`
 - Built-in tools: 全部停用（`--tools ""`）
 - MCP tools: 全部拒絕（`--disallowedTools "mcp__*"`）
@@ -59,7 +60,7 @@ Claude 訂閱使用者可在本機透過 `claude setup-token` 產生長效 OAuth
 - Retry loop: 無
 - GitHub permission: `contents: read`
 
-Haiku 4.5 是目前可用的低成本 Claude 模型之一；模型若退休或在 Claude Code 訂閱路徑不可用，本 workflow 應更新指定模型，而不是自動 fallback 到 Sonnet / Opus。
+使用 Claude CLI 的 `haiku` alias，避免 workflow 綁死在特定 dated model。此 workflow 不設定 Sonnet / Opus fallback；Haiku 路徑不可用時應直接失敗並人工檢查。
 
 ## 重要限制
 
