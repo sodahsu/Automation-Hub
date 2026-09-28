@@ -1,3 +1,7 @@
+## Purpose
+
+提供一個與本機環境解耦的最小 Claude 喚醒機制：每天台灣時間 07:00 由 GitHub-hosted runner 對指定 Claude 帳號送出一次單回合請求，並以最小權限與可驗證方式執行。
+
 ## ADDED Requirements
 
 ### Requirement: 系統 MUST 每天 07:00 觸發一次 Claude minimal wake
@@ -35,14 +39,25 @@ Claude wake **MUST** 限制為單回合最小請求，不得在 V1 執行工作�
 
 ### Requirement: Wake workflow MUST 維持最小 repository 權限
 
-Wake workflow **MUST** 只取得完成執行所需的最低 repository permission。
+Wake workflow **MUST** 只取得完成執行所需的最低 GitHub Actions 權限：`contents: read` 與 Claude Code Action OIDC 身分交換所需的 `id-token: write`。其中 `id-token: write` **MUST NOT** 被視為 repository content write permission。
 
-#### Scenario: Workflow 取得 GitHub token
+#### Scenario: Workflow 取得 GitHub token 與 OIDC token
 
 - **WHEN** GitHub Actions 建立 wake job
-- **THEN** workflow permissions **MUST** 不高於 `contents: read`
+- **THEN** workflow **MUST** 使用 `contents: read`
+- **AND** workflow **MUST** 使用 `id-token: write` 供 Claude Code Action 取得 OIDC token
 - **AND** checkout **MUST NOT** persist Git credential
 - **AND** workflow **MUST NOT** commit、push、建立 branch、PR 或 issue
+
+### Requirement: Third-party Actions MUST 固定 immutable commit SHA
+
+Wake workflow 使用的第三方 GitHub Actions **MUST** 固定到 40 字元 immutable commit SHA，不得只使用可移動 tag。
+
+#### Scenario: Workflow 載入第三方 Action
+
+- **WHEN** workflow 使用 `actions/checkout` 或 `anthropics/claude-code-action`
+- **THEN** `uses:` reference **MUST** 為 40 字元 commit SHA
+- **AND** 可在行尾註記對應版本名稱供人工辨識
 
 ### Requirement: Wake MUST 支援 manual smoke test
 
@@ -52,7 +67,7 @@ Wake workflow **MUST** 只取得完成執行所需的最低 repository permissio
 
 - **WHEN** 使用者從 GitHub Actions 執行 manual dispatch
 - **THEN** workflow **MUST** 執行與 scheduled wake 相同的 Claude minimal request
-- **AND** 不得因 manual trigger 額外取得 write permission
+- **AND** 不得因 manual trigger 額外取得 repository content write permission
 
 ### Requirement: Wake MUST NOT 被定義為 Claude 額度 reset 保證
 
