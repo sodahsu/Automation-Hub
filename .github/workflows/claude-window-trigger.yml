@@ -99,7 +99,10 @@ jobs:
           claude_args: >-
             --model claude-haiku-4-5-20251001
             --max-turns 1
-            --disallowedTools Bash,Read,Write,Edit,Glob,Grep,Task,WebFetch,WebSearch,NotebookEdit
+            --bare
+            --tools ""
+            --disallowedTools "mcp__*"
+            --system-prompt "Reply exactly: OK"
 
       - name: Record live result
         if: steps.mode.outputs.mode == 'live' && always()
