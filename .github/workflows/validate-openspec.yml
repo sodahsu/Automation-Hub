@@ -7,13 +7,24 @@ on:
     paths:
       - 'openspec/**'
       - '.github/workflows/validate-openspec.yml'
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - 'openspec/**'
+      - '.github/workflows/validate-openspec.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: validate-openspec
+  group: validate-openspec-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
