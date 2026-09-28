@@ -38,7 +38,7 @@
 - [x] 建立 requirement delta spec，含新 capability 的 Purpose。
 - [x] 建立 design。
 - [x] 建立 tasks checklist。
-- [ ] OpenSpec strict validation 通過。
+- [x] OpenSpec strict validation 通過；Run 36398605893（2026-09-28）PASS。
 
 ## 5. 帳號認證
 
@@ -72,7 +72,7 @@
 
 ## 9. 完成與歸檔
 
-- [ ] Security audit PASS。
+- [x] Security audit PASS；Run 36398477062（2026-09-28）PASS。
 - [ ] Manual smoke test、scheduled runtime 驗證與 strict validation 全部完成。
 - [ ] 補上 review / runtime evidence。
 - [ ] 完成後才移至 `openspec/changes/archive/`。
