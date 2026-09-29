@@ -176,3 +176,92 @@ jobs:
 
           echo >> "${GITHUB_STEP_SUMMARY}"
           echo "Dispatched targets: ${dispatched}" >> "${GITHUB_STEP_SUMMARY}"
+
+          # PR head 驗證：只涵蓋 repo-01～05（repo-06 是 main-only 知識庫）。
+          # 單一 alias 的 PR 查詢失敗只記錄並繼續，最後才讓 step 失敗，
+          # 避免上面已完成的 default branch dispatch 因此被整段蓋掉。
+          {
+            echo
+            echo "## Pull request head verification"
+            echo
+            echo "| Target | Decision |"
+            echo "|---|---|"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          pr_failures=0
+
+          for alias in "${aliases[@]}"; do
+            [[ "${alias}" == "repo-06" ]] && continue
+
+            private_repo="$(jq -er --arg alias "${alias}" '.[$alias]' <<<"${PRIVATE_REPOS_JSON}")"
+            echo "::add-mask::${private_repo}"
+
+            pulls_file="${RUNNER_TEMP}/pulls-${alias}.json"
+            pulls_code="$(curl --silent --location               --output "${pulls_file}"               --write-out "%{http_code}"               --header "Accept: application/vnd.github+json"               --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"               --header "X-GitHub-Api-Version: 2026-03-10"               "https://api.github.com/repos/${private_repo}/pulls?state=open&per_page=50")"
+
+            if [[ "${pulls_code}" != "200" ]]; then
+              rm -f "${pulls_file}"
+              echo "::error title=Private PR check failed::${alias} pull request lookup failed with HTTP ${pulls_code}."
+              echo "| ${alias} | ERROR — PR lookup failed |" >> "${GITHUB_STEP_SUMMARY}"
+              ((pr_failures += 1))
+              continue
+            fi
+
+            head_shas="$(jq -r '.[] | select(.draft == false) | .head.sha' "${pulls_file}")"
+            rm -f "${pulls_file}"
+
+            pr_run=0
+            pr_skip=0
+            alias_failed=0
+
+            while IFS= read -r head_sha; do
+              [[ -n "${head_sha}" ]] || continue
+
+              if [[ ! "${head_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+                echo "::error title=Private PR check failed::${alias} returned an unexpected head identifier."
+                alias_failed=1
+                continue
+              fi
+
+              status_file="${RUNNER_TEMP}/commit-status-${alias}.json"
+              status_code="$(curl --silent --location                 --output "${status_file}"                 --write-out "%{http_code}"                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${private_repo}/commits/${head_sha}/status")"
+
+              if [[ "${status_code}" != "200" ]]; then
+                rm -f "${status_file}"
+                echo "::error title=Private PR check failed::${alias} commit status lookup failed with HTTP ${status_code}."
+                alias_failed=1
+                continue
+              fi
+
+              has_status="$(jq -r '[.statuses[]? | select(.context == "automation-hub/private-ci")] | length' "${status_file}")"
+              rm -f "${status_file}"
+
+              if [[ "${has_status}" != "0" ]]; then
+                ((pr_skip += 1))
+                continue
+              fi
+
+              payload="$(jq -cn --arg ref "main" --arg target "${alias}" --arg sha "${head_sha}" '{ref:$ref,inputs:{target:$target,sha:$sha}}')"
+              dispatch_file="${RUNNER_TEMP}/dispatch-pr-${alias}.txt"
+
+              dispatch_code="$(curl --silent --location                 --output "${dispatch_file}"                 --write-out "%{http_code}"                 --request POST                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${HUB_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/private-ci.yml/dispatches"                 --data "${payload}")"
+
+              rm -f "${dispatch_file}"
+
+              if [[ ! "${dispatch_code}" =~ ^2[0-9][0-9]$ ]]; then
+                echo "::error title=CI dispatch failed::Unable to dispatch ${alias} PR verification (HTTP ${dispatch_code})."
+                alias_failed=1
+                continue
+              fi
+
+              ((pr_run += 1))
+            done <<<"${head_shas}"
+
+            ((alias_failed)) && ((pr_failures += 1))
+            echo "| ${alias} | PR RUN ${pr_run} / PR SKIP ${pr_skip} |" >> "${GITHUB_STEP_SUMMARY}"
+          done
+
+          if (( pr_failures > 0 )); then
+            echo "::error title=PR verification incomplete::${pr_failures} alias(es) had PR lookup or dispatch failures."
+            exit 1
+          fi
