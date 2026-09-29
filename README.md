@@ -4,9 +4,10 @@
 
 Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提下，改由 Public GitHub-hosted runner 執行 CI 與健康檢查。所有 private repo 存取都維持唯讀，公開輸出只保留經過清理的狀態摘要，production deployment 不在本專案範圍內。
 
-目前支援三種執行方式：
+目前支援四種執行方式：
 
 - **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
+- **PR head 驗證**：對 repo-01～05 的 Ready PR head 跑同一套 CI，並把結果回寫為 PR 上的 commit status（見「PR 模式」）。
 - **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
@@ -37,6 +38,13 @@ private repository           僅在 runtime 解析
             |
             v
 只公開 PASS / FAIL / SKIP 摘要
+
+PR 模式（dispatch 帶 sha，僅 repo-01..05）：
+
+resolve ──> mark-pending ──> ci ──> report
+（驗證輸入） （STATUS_TOKEN）  （READ_TOKEN，  （STATUS_TOKEN）
+              寫 pending      跑 private     寫 success /
+                              程式碼）       failure / error
 ~~~
 
 ## 必要的 GitHub Actions Secrets
@@ -51,8 +59,20 @@ private repository           僅在 runtime 解析
 
 - Contents：Read-only
 - Metadata：Read
+- Pull requests：Read-only（detector 列出 open PR）
+- Commit statuses：Read-only（detector 判斷 head 是否已驗證）
 
 不要授予 private repo write 權限。
+
+### `PRIVATE_REPOS_STATUS_TOKEN`
+
+PR 模式回寫 commit status 專用的第二支 fine-grained personal access token，是 Automation-Hub 唯一的 private repo 寫入 credential。
+
+- Repository access：只選 repo-01～05 對應的 private repositories（不含 repo-06）
+- Commit statuses：Read and write
+- Metadata：Read
+
+不授予 Contents、Pull requests 或其他 write 權限，因此無法改 code、branch 或 PR。這支 token 只出現在 `mark-pending` 與 `report` 兩個 job，執行 private 程式碼的 `ci` job 拿不到它。
 
 ### `PRIVATE_REPOS_JSON`
 
@@ -83,7 +103,19 @@ private repository           僅在 runtime 解析
 
 手動模式只執行所選的一個 alias。
 
-目前 bridge 一律檢查 private target 的 default branch，避免把 private branch/ref 名稱暴露為 Public workflow input。
+不帶 `sha` 時，bridge 檢查 private target 的 default branch，避免把 private branch/ref 名稱暴露為 Public workflow input。
+
+## PR 模式（驗證 PR head）
+
+private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍可取得合併前的 CI 證據。
+
+- 手動：在 **Run workflow** 選 `repo-01`～`repo-05`，並在 `sha` 填 PR head 的 40 碼 commit SHA。`sha` 只接受 `^[0-9a-f]{40}$`，且不支援 `repo-06`；格式錯誤會在任何網路請求前失敗。不接受分支名稱。
+- 自動：detector 每輪列出 repo-01～05 的 open、非 Draft PR，head SHA 上還沒有 `automation-hub/private-ci` status 的就 dispatch 一次。Draft 不跑；已有任何狀態的 status 不重跑（要重跑就手動 dispatch）。
+- 結果：`automation-hub/private-ci` commit status 依序為 `pending` → `success`／`failure`／`error`，`target_url` 指向 Public run，description 只含清理過的 PASS／FAIL／SKIP 計數。
+- job 名稱為 `CI — <alias> · PR`，不會被 detector 當成 default branch 的結果；concurrency group 帶入 sha，不會卡住 main 的健康檢查。
+- Detector 的 step summary 只寫每個 alias 的 `PR RUN n / PR SKIP m` 計數，不寫 PR 編號、標題、分支或作者。
+
+PR 模式假設 PR 程式碼與 default branch 同樣可信（同一 owner 與其 AI 代理）；若日後接受外部貢獻者的 PR，必須重新評估，因為 PR 程式碼會在持有 read token 的 job 中執行。
 
 ## 每 5 分鐘偵測 private repo 變更
 
@@ -100,11 +132,11 @@ Detector 不會固定重跑六倉，而是：
 5. 若有更新的 push，才透過 Public Automation-Hub 自己的 `workflow_dispatch` 執行該 alias。
 6. 若該 alias 已有 CI 執行中，標記為 `WAIT`，下一輪再判斷，避免重複排隊。
 
-這個 detector 不保存 private commit SHA，也不新增 private repo write 權限。只有 Public Automation-Hub 的 detector job 具有 `actions: write`，用途僅限觸發既有 Public CI workflow。
+這個 detector 不保存 private commit SHA，也不持有 private repo write 權限（write 只在 PR 模式的 `mark-pending`／`report` job）。只有 Public Automation-Hub 的 detector job 具有 `actions: write`，用途僅限觸發既有 Public CI workflow。
 
 因為採用 repository-level `pushed_at`，其他 branch 的 push 可能造成一次額外 default-branch CI；這是刻意採用的保守策略。
 
-**Hub CI 綠燈的意思是「該 repo 的 default branch 健康」，不代表剛 push 的 feature branch 通過。** 分支與 PR 驗證由各 private repo 自己的 CI 負責；Hub CI 定位為六倉 default branch 的健康監控。
+**Hub CI 綠燈的意思是「該 repo 的 default branch 健康」，不代表剛 push 的 feature branch 通過。** feature branch 由各 private repo 自己的 CI 負責；PR head 另可透過 PR 模式取得驗證（不強制為合併條件）。
 
 ## Hub 自身的六倉 regression
 
@@ -216,6 +248,7 @@ Cleanup 階段會刪除所有暫存 command files，最後只發布 Hub 自己�
 目前主要變更：
 
 - `openspec/changes/public-ci-automation-hub/` — Phase 1 唯讀 CI 復原與六倉 rollout。
+- `openspec/changes/run-private-pr-heads/` — PR head 驗證與 commit status 回寫。
 - `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 5 分鐘 private change detector 與 Hub-code regression trigger。
 
 實作需同時遵守兩個 change 中的安全、遷移與驗證規則。

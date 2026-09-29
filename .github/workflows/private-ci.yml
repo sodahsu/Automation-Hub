@@ -20,20 +20,118 @@ on:
           - repo-04
           - repo-05
           - repo-06
+      sha:
+        description: Optional 40-char commit SHA (PR head verification). Empty means default branch.
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  # 在任何網路請求之前先驗證輸入；驗證失敗整條 workflow 直接停。
+  resolve:
+    name: Resolve run mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - name: Validate inputs and select mode
+        id: mode
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          INPUT_TARGET: ${{ inputs.target }}
+        run: |
+          set -Eeuo pipefail
+
+          if [[ -z "${INPUT_SHA}" ]]; then
+            echo "mode=default" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ ! "${INPUT_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid input::sha must be a 40-character lowercase hex commit SHA."
+            exit 1
+          fi
+
+          if [[ "${INPUT_TARGET}" == "repo-06" ]]; then
+            echo "::error title=Unsupported target::repo-06 does not support PR mode."
+            exit 1
+          fi
+
+          echo "mode=pr" >> "${GITHUB_OUTPUT}"
+
+  # status token 只存在於 mark-pending 與 report；執行 private 程式碼的 ci job 拿不到。
+  mark-pending:
+    name: Mark PR status pending
+    needs: resolve
+    if: ${{ needs.resolve.outputs.mode == 'pr' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write pending commit status
+        env:
+          PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          STATUS_TOKEN: ${{ secrets.PRIVATE_REPOS_STATUS_TOKEN }}
+          TARGET_ALIAS: ${{ inputs.target }}
+          HEAD_SHA: ${{ inputs.sha }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          if [[ -z "${STATUS_TOKEN}" ]]; then
+            echo "::error title=Missing secret::PRIVATE_REPOS_STATUS_TOKEN is not configured."
+            exit 1
+          fi
+
+          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
+
+          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
+            exit 1
+          fi
+
+          echo "::add-mask::${private_repo}"
+
+          payload="$(jq -cn --arg url "${TARGET_URL}" \
+            '{state:"pending",context:"automation-hub/private-ci",description:"Public CI is running",target_url:$url}')"
+          out_file="${RUNNER_TEMP}/status-pending.json"
+
+          http_code="$(curl --silent --location \
+            --output "${out_file}" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${STATUS_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${private_repo}/statuses/${HEAD_SHA}" \
+            --data "${payload}")"
+          rm -f "${out_file}"
+
+          if [[ ! "${http_code}" =~ ^2[0-9][0-9]$ ]]; then
+            echo "::error title=Status write failed::Unable to write pending status (HTTP ${http_code})."
+            exit 1
+          fi
+
   ci:
-    name: CI — ${{ matrix.target }}
+    name: CI — ${{ matrix.target }}${{ needs.resolve.outputs.mode == 'pr' && ' · PR' || '' }}
+    needs: [resolve, mark-pending]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.mark-pending.result == 'success' || needs.mark-pending.result == 'skipped') }}
+    outputs:
+      ci_outcome: ${{ steps.publish.outputs.ci_outcome }}
+      pass_count: ${{ steps.publish.outputs.pass_count }}
+      fail_count: ${{ steps.publish.outputs.fail_count }}
+      skip_count: ${{ steps.publish.outputs.skip_count }}
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
         target: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.target) || '["repo-01","repo-02","repo-03","repo-04","repo-05","repo-06"]') }}
     concurrency:
-      group: private-ci-${{ matrix.target }}
+      group: private-ci-${{ matrix.target }}${{ needs.resolve.outputs.mode == 'pr' && format('-{0}', inputs.sha) || '' }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -71,6 +169,8 @@ jobs:
           TARGET_ALIAS: ${{ matrix.target }}
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
           GH_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
+          RUN_MODE: ${{ needs.resolve.outputs.mode }}
+          HEAD_SHA: ${{ inputs.sha }}
         run: |
           set -Eeuo pipefail
           umask 077
@@ -122,13 +222,17 @@ jobs:
             # Phase 1 is strictly read-only. Use the repository archive API, which
             # requires only Contents: Read for a fine-grained PAT.
             archive="${RUNNER_TEMP}/private-repo.tar.gz"
+            tarball_url="https://api.github.com/repos/${private_repo}/tarball"
+            if [[ "${RUN_MODE}" == "pr" ]]; then
+              tarball_url="${tarball_url}/${HEAD_SHA}"
+            fi
             http_code="$(curl --silent --show-error --location \
               --output "${archive}" \
               --write-out "%{http_code}" \
               --header "Accept: application/vnd.github+json" \
               --header "Authorization: Bearer ${GH_TOKEN}" \
               --header "X-GitHub-Api-Version: 2026-03-10" \
-              "https://api.github.com/repos/${private_repo}/tarball")"
+              "${tarball_url}")"
 
             if [[ "${http_code}" != "200" ]]; then
               rm -f "${archive}"
@@ -181,9 +285,28 @@ jobs:
           bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${{ matrix.target }}"
 
       - name: Publish sanitized summary
+        id: publish
         if: ${{ always() }}
+        env:
+          PRIVATE_CI_OUTCOME: ${{ steps.private_ci.outcome }}
         run: |
           set -Eeuo pipefail
+
+          # 只輸出列舉值與數字給 report job，不帶任何 private 內容。
+          pass_count=0
+          fail_count=0
+          skip_count=0
+          if [[ -f "${RUNNER_TEMP}/ci-summary.md" ]]; then
+            pass_count="$(grep -cE '^\| .* \| PASS[ |]' "${RUNNER_TEMP}/ci-summary.md" || true)"
+            fail_count="$(grep -cE '^\| .* \| FAIL[ |]' "${RUNNER_TEMP}/ci-summary.md" || true)"
+            skip_count="$(grep -cE '^\| .* \| SKIP[ |]' "${RUNNER_TEMP}/ci-summary.md" || true)"
+          fi
+          {
+            echo "ci_outcome=${PRIVATE_CI_OUTCOME}"
+            echo "pass_count=${pass_count}"
+            echo "fail_count=${fail_count}"
+            echo "skip_count=${skip_count}"
+          } >> "${GITHUB_OUTPUT}"
 
           {
             echo "## Target"
@@ -211,3 +334,76 @@ jobs:
         run: |
           echo "::error title=Private CI failed::One or more repository-native CI stages failed."
           exit 1
+
+  report:
+    name: Report PR status
+    needs: [resolve, ci]
+    if: ${{ always() && needs.resolve.outputs.mode == 'pr' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write final commit status
+        env:
+          PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          STATUS_TOKEN: ${{ secrets.PRIVATE_REPOS_STATUS_TOKEN }}
+          TARGET_ALIAS: ${{ inputs.target }}
+          HEAD_SHA: ${{ inputs.sha }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_RESULT: ${{ needs.ci.result }}
+          CI_OUTCOME: ${{ needs.ci.outputs.ci_outcome }}
+          PASS_COUNT: ${{ needs.ci.outputs.pass_count }}
+          FAIL_COUNT: ${{ needs.ci.outputs.fail_count }}
+          SKIP_COUNT: ${{ needs.ci.outputs.skip_count }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          if [[ -z "${STATUS_TOKEN}" ]]; then
+            echo "::error title=Missing secret::PRIVATE_REPOS_STATUS_TOKEN is not configured."
+            exit 1
+          fi
+
+          # private_ci step 是 continue-on-error，成敗看 step outcome 而非 job result。
+          # ci job 取消、取得原始碼失敗或沒有 output 時一律 error，不留在 pending。
+          state="error"
+          description="Public CI did not complete"
+          if [[ "${CI_OUTCOME}" == "failure" ]]; then
+            state="failure"
+            description="Public CI failed"
+          elif [[ "${CI_OUTCOME}" == "success" && "${CI_RESULT}" == "success" ]]; then
+            state="success"
+            description="Public CI passed"
+          fi
+
+          if [[ "${PASS_COUNT}" =~ ^[0-9]{1,4}$ && "${FAIL_COUNT}" =~ ^[0-9]{1,4}$ && "${SKIP_COUNT}" =~ ^[0-9]{1,4}$ && "${state}" != "error" ]]; then
+            description="${description}: PASS ${PASS_COUNT} / FAIL ${FAIL_COUNT} / SKIP ${SKIP_COUNT}"
+          fi
+
+          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
+
+          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
+            exit 1
+          fi
+
+          echo "::add-mask::${private_repo}"
+
+          payload="$(jq -cn --arg state "${state}" --arg desc "${description:0:140}" --arg url "${TARGET_URL}" \
+            '{state:$state,context:"automation-hub/private-ci",description:$desc,target_url:$url}')"
+          out_file="${RUNNER_TEMP}/status-final.json"
+
+          http_code="$(curl --silent --location \
+            --output "${out_file}" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${STATUS_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${private_repo}/statuses/${HEAD_SHA}" \
+            --data "${payload}")"
+          rm -f "${out_file}"
+
+          if [[ ! "${http_code}" =~ ^2[0-9][0-9]$ ]]; then
+            echo "::error title=Status write failed::Unable to write ${state} status (HTTP ${http_code})."
+            exit 1
+          fi
