@@ -102,8 +102,8 @@ fi
 # Report bodies stay inside suppressed temporary logs and are never published.
 if [[ "$target_alias" == "repo-06" ]]; then
   run_stage "python-deps" python3 -m pip install --disable-pip-version-check PyYAML==6.0.3 || { write_summary; exit "$overall_rc"; }
-  run_stage "health-unit-tests" python3 -m unittest discover -s 90_System/tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
   run_stage "skill-sync" python3 90_System/scripts/check-skill-sync.py || { write_summary; exit "$overall_rc"; }
+  run_stage "health-unit-tests" python3 -m unittest discover -s 90_System/tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
   run_stage "metadata-normalizer" python3 90_System/scripts/metadata-normalizer.py check --format json || { write_summary; exit "$overall_rc"; }
   run_stage "vault-health" python3 90_System/scripts/vault-health.py || { write_summary; exit "$overall_rc"; }
   run_stage "followup-radar" python3 90_System/scripts/followup_radar.py --limit 30 || { write_summary; exit "$overall_rc"; }
