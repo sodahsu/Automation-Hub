@@ -207,7 +207,7 @@ jobs:
             # checkout, so keep read-only auth only for this one fetch-capable step.
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
               git -C workspace sparse-checkout set \
-              .agents .claude 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive
+              .agents .claude .kiro 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive
 
             rm -f "${askpass}"
 
