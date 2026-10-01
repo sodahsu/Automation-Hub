@@ -138,6 +138,41 @@ if [[ "$target_alias" == "repo-06" ]]; then
   write_summary
   exit "$overall_rc"
 fi
+# repo-03 is verified through the Garden PR status. Require its canonical npm CI
+# gate so an unsupported checkout can never publish a green, empty adapter run.
+if [[ "$target_alias" == "repo-03" ]]; then
+  if [[ ! -f package.json ]]; then
+    add_row "package-json" "FAIL (required file missing)"
+    overall_rc=2
+    write_summary
+    exit "$overall_rc"
+  fi
+
+  run_stage "package-json" node -e 'JSON.parse(require("fs").readFileSync("package.json", "utf8"))' || {
+    write_summary
+    exit "$overall_rc"
+  }
+
+  if [[ ! -s package-lock.json ]]; then
+    add_row "package-lock" "FAIL (required file missing or empty)"
+    overall_rc=2
+    write_summary
+    exit "$overall_rc"
+  fi
+  add_row "package-lock" "PASS"
+
+  if ! has_script "check:ci"; then
+    add_row "check:ci" "FAIL (required script missing)"
+    overall_rc=2
+    write_summary
+    exit "$overall_rc"
+  fi
+
+  run_stage "install" npm ci --no-audit --no-fund || { write_summary; exit "$overall_rc"; }
+  run_stage "check:ci" npm run check:ci || { write_summary; exit "$overall_rc"; }
+  write_summary
+  exit "$overall_rc"
+fi
 if [[ ! -f package.json ]]; then
   add_row "adapter" "SKIP (no supported project adapter)"
   write_summary
@@ -267,3 +302,4 @@ done
 
 write_summary
 exit "$overall_rc"
+
