@@ -11,6 +11,34 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 - **每 15 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
+契約只涵蓋「唯讀 CI 與健康證據」，另有兩個具名例外，見「契約邊界與具名例外」。Hub 的綠燈是建議性證據，而且 `SKIP` 不等於已驗證，見「SKIP 不等於已驗證」。
+
+## 契約邊界與具名例外
+
+Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀取 private repo、只回寫 commit status，不 push、不部署、不持有任何 canonical 內容。
+
+契約內只有下面兩個具名例外。它們不是 CI，也完全不碰 private repo；放在這個公開儲存庫，是因為 GitHub-hosted runner 在 Public repo 不佔用額度：
+
+| Workflow | 做什麼 | 觸發 |
+| --- | --- | --- |
+| `claude-0700-wake.yml` | 每天固定時間送出一個單回合、固定回應的最小 Claude 請求 | `schedule`、`workflow_dispatch` |
+| `claude-window-trigger.yml` | 每天固定四個時段送出同樣的最小請求；scheduled run 預設 dry-run，必須明確啟用 repository variable 才會真的呼叫 | `schedule`、`workflow_dispatch` |
+
+兩者使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。
+
+### 例外的風險邊界
+
+下列四項是例外成立的前提。任何一項不再成立，必須先停用這兩個 workflow，再回頭修改契約：
+
+1. **只由 `schedule` 與 `workflow_dispatch` 觸發。** 沒有 `pull_request`、`pull_request_target`、`push`、issue 或 comment 類觸發；`scripts/security/audit.py` 另外檢查所有 workflow 不得使用 `pull_request_target`（在 workflow 異動併入 `main` 時執行）。
+2. **fork PR 拿不到這些 secret。** fork PR 沒有任何路徑能觸發這兩個 workflow，且 GitHub 不會把 repository secret 交給 fork 發起的 `pull_request` run。
+3. **不 checkout private repo。** window trigger 完全不 checkout；wake workflow 最多 checkout 本儲存庫自己（`persist-credentials: false`）。兩者都不引用任何 private repo 相關的 secret。
+4. **只有 repository owner 能觸發。** `workflow_dispatch` 需要 repo 的 write 權限，所以這一項取決於沒有其他擁有 write 權限的協作者；workflow 檔案本身沒有觸發者（`github.actor`）檢查。這一項必須在 Settings → Collaborators 確認，無法由 workflow 檔案證明。
+
+其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read`，wake workflow 另有 `id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）；window trigger 另外停用所有內建工具與 MCP，並在偵測到 API key 時拒絕執行，避免意外走按量計費。
+
+殘留風險：個人 OAuth credential 存放在公開儲存庫的 Secret。能改動並執行 workflow 的人都讀得到它，最大影響是該個人帳號的額度被他人消耗，因此第 4 項是整個例外最關鍵的前提。
+
 ## 架構
 
 ~~~text
@@ -137,6 +165,24 @@ Detector 不會固定重跑六倉，而是：
 因為採用 repository-level `pushed_at`，其他 branch 的 push 可能造成一次額外 default-branch CI；這是刻意採用的保守策略。
 
 **Hub CI 綠燈的意思是「該 repo 的 default branch 健康」，不代表剛 push 的 feature branch 通過。** feature branch 由各 private repo 自己的 CI 負責；PR head 另可透過 PR 模式取得驗證（不強制為合併條件）。
+
+## SKIP 不等於已驗證
+
+`SKIP` 只代表該 stage 沒有執行，不代表通過。下列情況整輪都沒有任何 adapter 或檢查 stage 實際執行，job 仍會以 exit 0 結束，也就是綠燈：
+
+- target 沒有 `package.json`（`SKIP (no supported project adapter)`）。
+- 有 `package.json`，但沒有受支援的 lockfile（`SKIP (no supported lockfile)`）。
+- 使用尚未 review 的 Bun adapter（`SKIP (Bun adapter requires separate review)`）。
+- 有 `package.json` 與 lockfile，但 `check:ci` 與 `lint`／`typecheck`／`test`／`build` 全都不存在，只完成 install。
+
+這種綠燈**一律視為「未驗證」，不得當成通過。** 為了避免被漏看，`scripts/common/run-ci.sh` 在這種情況會：
+
+- 在 job summary 結尾寫一行 `UNVERIFIED：沒有任何 adapter／檢查 stage 執行；…`；
+- 在 log 結尾輸出同一行（以 `::warning` annotation 呈現）。
+
+exit code 刻意不變：改成紅燈會破壞 detector 以 job 結論判斷的語意。因此 PR 模式的 commit status 在這種情況仍會寫 `success`，判讀依據是 Public run 的 job summary，以及 status description 裡的 PASS／FAIL／SKIP 計數。
+
+判斷標準：summary 裡至少要有一個不屬於備料的 stage 顯示 `PASS`。備料 stage 包含 `package-json`、`package-lock`、`package-manager`、`install`、`local-git-baseline`、`shellcheck-tool`、`python-deps`；它們的 `PASS` 只代表前置條件成立。已知 target 的專屬 adapter（例如 `repo-03`）缺必要檔案時會 fail closed 成紅燈，不在此列。
 
 ## Hub 自身的六倉 regression
 

@@ -16,20 +16,61 @@ mkdir -p "$(dirname "$summary_file")"
 declare -a rows=()
 overall_rc=0
 
+# 這些 stage 只負責備料或偵測環境：PASS 只代表前置條件成立，
+# 不代表目標程式碼的任何檢查被執行過。
+setup_stages=" package-json package-lock package-manager install local-git-baseline shellcheck-tool python-deps "
+unverified_note="UNVERIFIED：沒有任何 adapter／檢查 stage 執行；這次綠燈只代表沒有東西失敗，不代表通過。"
+
 add_row() {
   local stage="$1"
   local status="$2"
   rows+=("| ${stage} | ${status} |")
 }
 
+# 只掃已記錄的 rows，不碰 run_stage 與各 adapter 的流程，exit code 因此不受影響。
+count_verifying_rows() {
+  local row stage status count=0
+  for row in "${rows[@]}"; do
+    # row 由 add_row 產生，固定為「| <stage> | <status> |」。
+    IFS='|' read -r _ stage status _ <<<"$row"
+    stage="${stage# }"
+    stage="${stage% }"
+    status="${status# }"
+    if [[ "$setup_stages" == *" ${stage} "* ]]; then
+      continue
+    fi
+    if [[ "$status" == PASS* ]]; then
+      count=$((count + 1))
+    fi
+  done
+  echo "$count"
+}
+
 write_summary() {
+  local unverified=0
+  # 失敗的 run 本來就是紅燈；只有「綠燈卻沒驗證任何東西」需要額外標示。
+  if (( overall_rc == 0 )) && [[ "$(count_verifying_rows)" == "0" ]]; then
+    unverified=1
+  fi
+
   {
     echo "### Private CI Bridge"
     echo
     echo "| Stage | Status |"
     echo "| --- | --- |"
     printf '%s\n' "${rows[@]}"
+    if (( unverified )); then
+      echo
+      echo "> **${unverified_note}**"
+    fi
   } > "$summary_file"
+
+  if (( unverified )); then
+    # 刻意不改 exit code：改成紅燈會破壞 detector 以 job 結論判斷的語意。
+    # 這行寫進 log 與 annotation；真正的 job summary 由 workflow 的 publish step
+    # 讀 $summary_file 後發布（$GITHUB_STEP_SUMMARY 在此 step 已被隔離到暫存檔）。
+    echo "::warning title=Private CI unverified::${unverified_note}"
+  fi
 }
 
 cleanup_logs() {
