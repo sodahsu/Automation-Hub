@@ -18,7 +18,7 @@
 | Change | 狀態 | 下一步 |
 |---|---|---|
 | `align-external-scheduler-to-15m` | WAITING-HUMAN | Live 已證實約 15 分鐘，PR #19 OpenSpec strict validation 已綠；剩 cron-job.org 設定頁精確值、generic repository/security checks 與獨立 review。外部登入／獨立驗證完成前不 archive。 |
-| `run-private-pr-heads` | ACTIVE | PR-head CI 程式與 Ai-agent #534–#537 runtime 已證實，但 task 4.2 要擴充 Ai-agent `architecture/workflows.json` 的 PR-mode remoteEvidence；現有 schema 不接受額外欄位，屬跨 repo 架構契約變更，必須另開完整 OpenSpec，不能在本收納 PR 偷做。PAT 最小 scope 與特定人工 smoke 另保留為人工驗證。 |
+| `run-private-pr-heads` | WAITING-HUMAN | Hub 程式/runtime 與 Ai-agent machine-readable remoteEvidence contract 都已成立；#541 的同 SHA validation #543 / Hub run `37190764398` success。剩 PAT 最小 scope、manual dispatch 與 no-retry runtime observation，不能由 repo 內程式自行證明。 |
 | `trigger-openspec-validation-on-pr` | ARCHIVED | 2026-10-04 完成 opened / synchronize / ready_for_review runtime 驗證，canonical `ci-pr-validation` 已建立並歸檔。 |
 | `claude-0700-minimal-wake` | WAITING-HUMAN | workflow 已 scheduled success；剩 OAuth 帳號身分、usage/reset 與離線觀察。 |
 | `claude-window-trigger` | WAITING-HUMAN | scheduled workflow 已成功執行；剩 enable flag、live usage 與兩工作日觀察。 |
@@ -26,6 +26,6 @@
 
 ## 優先順序
 
-1. CLOSEOUT 已歸零；`run-private-pr-heads` 因仍有跨 repo architecture contract 工作，改列 ACTIVE。
+1. CLOSEOUT 已歸零；目前沒有 Hub repo 內可直接完成的 ACTIVE change。`run-private-pr-heads` 已降為 WAITING-HUMAN。
 2. WAITING-HUMAN（含 scheduler 精確設定／review）不阻塞已觀察到的 Hub runtime health。
 3. action-version 調查已歸檔；若未來要升級，應在 owning repo 重新開 change。
