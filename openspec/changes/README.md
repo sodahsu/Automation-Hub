@@ -17,7 +17,7 @@
 
 | Change | 狀態 | 下一步 |
 |---|---|---|
-| `align-external-scheduler-to-15m` | CLOSEOUT | 2026-10-04 live 已證實約 15 分鐘 cadence；完成 strict/review，精確 cron-job.org UI 值若無法直接讀取就保留為未驗證，再歸檔。 |
+| `align-external-scheduler-to-15m` | WAITING-HUMAN | Live 已證實約 15 分鐘，PR #19 OpenSpec strict validation 已綠；剩 cron-job.org 設定頁精確值、generic repository/security checks 與獨立 review。外部登入／獨立驗證完成前不 archive。 |
 | `run-private-pr-heads` | CLOSEOUT | 程式與 Ai-agent #534–#537 runtime 已證實 PR status chain；補 Ai-agent remoteEvidence，保留 PAT 最小 scope 為人工確認。 |
 | `trigger-openspec-validation-on-pr` | ARCHIVED | 2026-10-04 完成 opened / synchronize / ready_for_review runtime 驗證，canonical `ci-pr-validation` 已建立並歸檔。 |
 | `claude-0700-minimal-wake` | WAITING-HUMAN | workflow 已 scheduled success；剩 OAuth 帳號身分、usage/reset 與離線觀察。 |
@@ -26,6 +26,6 @@
 
 ## 優先順序
 
-1. 剩餘 CLOSEOUT：`align-external-scheduler-to-15m`、`run-private-pr-heads`。
-2. WAITING-HUMAN 不阻塞 Hub health。
+1. 剩餘 CLOSEOUT：`run-private-pr-heads`。
+2. WAITING-HUMAN（含 scheduler 精確設定／review）不阻塞已觀察到的 Hub runtime health。
 3. action-version 調查已歸檔；若未來要升級，應在 owning repo 重新開 change。
