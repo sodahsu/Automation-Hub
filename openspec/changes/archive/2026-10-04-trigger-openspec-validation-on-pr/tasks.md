@@ -32,7 +32,7 @@ source: ai-assisted
 
 ## Phase 4: Remote verification
 
-- [ ] 4.1 建立 target `main` 的 Draft PR，確認 workflow definition 可被 GitHub 接受。
-- [ ] 4.2 workflow change 進入 `main` 後，以新的 scoped PR 驗證 check 會在 `opened`／`synchronize` 出現。
-- [ ] 4.3 將既有 action version PR 轉 Ready，透過 `ready_for_review` 觀察 validation check。
-- [ ] 4.4 完成遠端觀察後再決定是否 archive 本 change。
+- [x] 4.1 建立 target `main` 的 Draft PR，確認 workflow definition 可被 GitHub 接受。2026-10-04：Draft PR #19 opened 後 `驗證 OpenSpec` run `37182894118` success。
+- [x] 4.2 workflow change 進入 `main` 後，以新的 scoped PR 驗證 check 會在 `opened`／`synchronize` 出現。2026-10-04：PR #19 opened run `37182894118` success；後續 commit 觸發 synchronize run `37182974523` success。
+- [x] 4.3 透過 `ready_for_review` 觀察 validation check。原 action-version 調查已改以 deferred 收納，因此改用本次 scoped PR #19 做等價且更直接的 runtime 驗證；2026-10-04 Ready 後 run `37183027261` success。
+- [x] 4.4 遠端 `opened` / `synchronize` / `ready_for_review` 皆已成功；本次決定在 canonical `ci-pr-validation` spec 建立並通過 strict validation後 archive。
