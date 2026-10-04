@@ -19,7 +19,7 @@
 ## 4. 文件
 
 - [x] 4.1 README 更新 secret 說明與 PR 模式
-- [ ] 4.2 （Ai-agent 另開 PR）Ai-agent `architecture/workflows.json` 的 remoteEvidence 註記 PR 模式（另開 Ai-agent PR）
+- [x] 4.2 Ai-agent 已以獨立 OpenSpec `record-hub-pr-head-evidence` + Draft PR #541 擴充 `architecture/workflows.json.remoteEvidence.automationHub`：新增 `prStatusContext: automation-hub/private-ci`，repo-01～05 `prHead: true`、repo-06 `false`。同 SHA 的 CI-only PR #543 已由 Automation-Hub run `37190764398` 驗證 success；Hub runtime 本身未修改。
 
 ## 5. 驗證
 
