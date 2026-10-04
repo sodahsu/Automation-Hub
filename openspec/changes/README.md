@@ -22,10 +22,10 @@
 | `trigger-openspec-validation-on-pr` | CLOSEOUT | Draft PR opened 已實際觸發 OpenSpec check；補 ready_for_review/同步事件需要的證據後歸檔。 |
 | `claude-0700-minimal-wake` | WAITING-HUMAN | workflow 已 scheduled success；剩 OAuth 帳號身分、usage/reset 與離線觀察。 |
 | `claude-window-trigger` | WAITING-HUMAN | scheduled workflow 已成功執行；剩 enable flag、live usage 與兩工作日觀察。 |
-| `align-claude-code-action-version` | HOLD | 調查本身已完成；是否跨 ObsidianBook / soda-cloud-agent 升級版本是另外決策，不在本 change 偷做。 |
+| `align-claude-code-action-version` | ARCHIVED | 2026-10-04 以 deferred / no production change 收納；未執行跨 repo 升級。 |
 
 ## 優先順序
 
 1. 收掉三個 CLOSEOUT。
 2. WAITING-HUMAN 不阻塞 Hub health。
-3. HOLD 若沒有新的升級需求，後續以「deferred / no production change」方式歸檔。
+3. action-version 調查已歸檔；若未來要升級，應在 owning repo 重新開 change。
