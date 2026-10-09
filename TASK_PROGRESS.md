@@ -32,6 +32,14 @@ Hub 端 runtime 已成立。Task 4.2 的 Ai-agent architecture contract 已進�
 
 Hub repo 本身不修改 workflow；Ai-agent #543 / Automation-Hub run `37190764398` 已 success，因此 task 4.2 已回填完成。
 
+### detector 輪詢 15 分鐘 → 5 分鐘（待處理，2026-10-09 登記）
+
+- 待使用者先在 cron-job.org 把 `detect-private-changes.yml` 的喚醒間隔由 15 分改為 5 分（代理無法存取該帳號）。
+- 為什麼值得做：`hub-ci-kick.sh` 只在 `gh pr ready` 與非 Draft 的 `gh pr create` 立即喚醒；網頁手動 Ready、hook 失敗、以及 **push 新 commit 到已 Ready 的 PR** 都只能等輪詢。Hub 是 public repo，加密頻率不增加 Actions 費用。
+- 動手前先查清楚：2026-10-04 為何定為 15 分鐘（現有文件只記錄 live cadence，未記原因）。
+- 驗收：以 `gh run list --workflow detect-private-changes.yml` 的實際 run 間隔為證，連續至少 6 次約 5 分鐘才算；不以設定頁為證。2026-10-09 基線：連續 38 次間隔 14.7–15.3 分鐘。
+- 完成後更新 README「每 15 分鐘」字樣、`docs/external-scheduler.md` 與 `private-change-detection` spec。
+
 ## Next Action
 
 1. 人工核對 `PRIVATE_REPOS_READ_TOKEN` / `PRIVATE_REPOS_STATUS_TOKEN` 是否只有文件要求的最小 scope。
