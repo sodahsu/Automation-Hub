@@ -1,6 +1,6 @@
 # TASK_PROGRESS
 
-更新：2026-10-04
+更新：2026-10-09
 狀態：active
 
 > 過期後先重新驗證 GitHub runtime、OpenSpec 與 PR 狀態；本檔是接手入口，不取代 source-of-truth。
@@ -9,7 +9,8 @@
 
 - 目前 owner：Automation-Hub 的 public CI / private-repo orchestration。
 - ACTIVE：0。
-- WAITING-HUMAN：`run-private-pr-heads`、`align-external-scheduler-to-15m`、`claude-0700-minimal-wake`、`claude-window-trigger`。
+- WAITING-HUMAN：`align-external-scheduler-to-15m`、`claude-0700-minimal-wake`、`claude-window-trigger`。
+- 2026-10-09 起 `run-private-pr-heads` 已歸檔（使用者批准）；四項使用者端驗證延後，仍在下方「Next Action」，清單見 `openspec/changes/archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 - CLOSEOUT：0。
 
 ## Completed
@@ -21,7 +22,7 @@
 
 ## Waiting Human
 
-### run-private-pr-heads
+### run-private-pr-heads（已歸檔，延後項目仍待使用者）
 
 Hub 端 runtime 已成立。Task 4.2 的 Ai-agent architecture contract 已進入實作：
 
