@@ -189,6 +189,8 @@ jobs:
           if [[ "${TARGET_ALIAS}" == "repo-06" ]]; then
             # repo-06 is large. Match its private Vault Health sparse checkout
             # instead of downloading the full repository archive.
+            # 清單必須與 repo-06 的 vault-health.yml 逐項一致：少了 .github/workflows，
+            # health-unit-tests 讀不到 workflow 檔而失敗，本機與原生 CI 卻都綠。
             askpass="${RUNNER_TEMP}/automation-hub-git-askpass.sh"
             printf '%s\n' \
               '#!/usr/bin/env bash' \
@@ -207,7 +209,8 @@ jobs:
             # checkout, so keep read-only auth only for this one fetch-capable step.
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
               git -C workspace sparse-checkout set \
-              .agents .claude .kiro 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive
+              .agents .claude .kiro 00_Inbox 10_Action 20_Knowledge 30_Sources 90_System 99_Archive \
+              .github/workflows
 
             rm -f "${askpass}"
 
