@@ -4,6 +4,12 @@ name: Detect Private Repository Changes
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Bypass 15-minute detector throttle"
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -30,9 +36,25 @@ jobs:
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
           PRIVATE_REPOS_READ_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
           HUB_TOKEN: ${{ github.token }}
+          FORCE_DETECT: ${{ inputs.force }}
         run: |
           set -Eeuo pipefail
           umask 077
+
+          # 外部 scheduler 的正式契約是每 15 分鐘，但曾觀察到每 5 分鐘喚醒。
+          # workflow_dispatch 若未明確 force，只在 UTC 分鐘 00/15/30/45 做完整掃描；
+          # 其餘喚醒立即結束，不讀 private API、不 dispatch CI。
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${FORCE_DETECT:-false}" != "true" ]]; then
+            minute="$(date -u +%M)"
+            if (( 10#${minute} % 15 != 0 )); then
+              {
+                echo "## Private CI change detector"
+                echo
+                echo "SKIP — early wake throttled; full detection runs every 15 minutes."
+              } >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+          fi
 
           if [[ -z "${PRIVATE_REPOS_JSON}" ]]; then
             echo "::error title=Missing secret::Private repository mapping is not configured."
