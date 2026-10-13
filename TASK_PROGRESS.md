@@ -1,6 +1,6 @@
 # TASK_PROGRESS
 
-更新：2026-10-09
+更新：2026-10-13
 狀態：active
 
 > 過期後先重新驗證 GitHub runtime、OpenSpec 與 PR 狀態；本檔是接手入口，不取代 source-of-truth。
@@ -10,11 +10,13 @@
 - 目前 owner：Automation-Hub 的 public CI / private-repo orchestration。
 - ACTIVE：0。
 - WAITING-HUMAN：`align-external-scheduler-to-15m`、`claude-0700-minimal-wake`、`claude-window-trigger`。
+- 2026-10-13 PR #23（`perf/throttle-private-detector-20261012`）已合併；workflow 端加入每 15 分鐘（UTC 00/15/30/45）節流檢查，防禦非整數倍分的過早喚醒。
 - 2026-10-09 起 `run-private-pr-heads` 已歸檔（使用者批准）；四項使用者端驗證延後，仍在下方「Next Action」，清單見 `openspec/changes/archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 - CLOSEOUT：0。
 
 ## Completed
 
+- 2026-10-13 PR #23 合併至 `main` (`5538f49`)：在 `detect-private-changes.yml` 增加 early wake 節流機制。
 - 2026-10-04 已證明 detector 約 15 分鐘 cadence。
 - PR-head CI 已在 Ai-agent #534–#537 與最新 #538 跑出 pending → CI → final status。
 - OpenSpec inventory branch PR #19 的 strict validation 已綠。
