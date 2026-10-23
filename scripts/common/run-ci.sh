@@ -293,8 +293,8 @@ if [[ "$target_alias" == "repo-04" ]]; then
     printf '%s\n' "$rc" > "$stage_results/$stage"
   }
 
-  # Each lane owns its stage logs/results; only the parent updates summary rows.
-  # Tests use isolated temporary repos; registry --check and spec audit are read-only.
+  # 每條 lane 只寫自己的 stage log 與結果檔，summary rows 只由父行程依原順序寫入。
+  # 測試各自用隔離的暫存 repo；registry --check 與 spec audit 唯讀，可安全並行。
   (
     run_parallel_stage "shellcheck-scripts" bash -c '
       find scripts -type f -name "*.sh" -print0 2>/dev/null | xargs -0 -P4 -I{} shellcheck --severity=error -e SC1090 -e SC1091 "{}"
@@ -345,7 +345,7 @@ if [[ "$target_alias" == "repo-04" ]]; then
   for stage in shellcheck-scripts shellcheck-skills governance architecture-tests architecture-contract architecture-drift \
     skill-resolver-tests registry-check routing-audit routing-matrix runner-integration skill-audit shared-path-audit \
     spec-governance-tests spec-truth-gate check:ci; do
-    # A lane that exits before recording a result must never become a green run.
+    # lane 若在寫入結果前就結束，該 stage 一律判 FAIL，不可變成綠燈。
     rc=1
     read -r rc < "$stage_results/$stage" || rc=1
     if [[ "$rc" == "SKIP" ]]; then
