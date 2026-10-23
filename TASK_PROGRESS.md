@@ -1,6 +1,6 @@
 # TASK_PROGRESS
 
-更新：2026-10-13
+更新：2026-10-23
 狀態：active
 
 > 過期後先重新驗證 GitHub runtime、OpenSpec 與 PR 狀態；本檔是接手入口，不取代 source-of-truth。
@@ -8,9 +8,9 @@
 ## Resume Here
 
 - 目前 owner：Automation-Hub 的 public CI / private-repo orchestration。
-- ACTIVE：0。
-- WAITING-HUMAN：`align-external-scheduler-to-15m`、`claude-0700-minimal-wake`、`claude-window-trigger`。
-- 2026-10-13 PR #23（`perf/throttle-private-detector-20261012`）已合併；workflow 端加入每 15 分鐘（UTC 00/15/30/45）節流檢查，防禦非整數倍分的過早喚醒。
+- ACTIVE：1（`detector-cadence-5m`，等 PR 合併與 live 驗收，見下方）。
+- WAITING-HUMAN：`claude-0700-minimal-wake`、`claude-window-trigger`。`align-external-scheduler-to-15m` 已於 2026-10-23 被 `detector-cadence-5m` 取代並歸檔。
+- 2026-10-13 PR #23（`perf/throttle-private-detector-20261012`）已合併；workflow 端加入每 15 分鐘（UTC 00/15/30/45）節流檢查，防禦非整數倍分的過早喚醒（2026-10-23 起由 `detector-cadence-5m` 改為每 5 分鐘）。
 - 2026-10-09 起 `run-private-pr-heads` 已歸檔（使用者批准）；四項使用者端驗證延後，仍在下方「Next Action」，清單見 `openspec/changes/archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 - CLOSEOUT：0。
 
@@ -35,13 +35,24 @@ Hub 端 runtime 已成立。Task 4.2 的 Ai-agent architecture contract 已進�
 
 Hub repo 本身不修改 workflow；Ai-agent #543 / Automation-Hub run `37190764398` 已 success，因此 task 4.2 已回填完成。
 
-### detector 輪詢 15 分鐘 → 5 分鐘（待處理，2026-10-09 登記）
+### 進行中：detector-cadence-5m（detector 輪詢 15 分鐘 → 5 分鐘）
 
-- 待使用者先在 cron-job.org 把 `detect-private-changes.yml` 的喚醒間隔由 15 分改為 5 分（代理無法存取該帳號）。
+- 2026-10-09 登記，2026-10-23 使用者決定改 5 分鐘，change：`openspec/changes/detector-cadence-5m/`（分支 `task/detector-cadence-5m`）。
+- cron-job.org 已經是 5 分鐘，不需使用者再改設定。證據：2026-10-23 detector runs 的建立時間為 02:55:06、03:00:33、03:05:06、03:10:10、03:15:11、03:20:10、03:25:06、03:30:21、03:35:06、03:40:10Z（`gh run list -R sodahsu/Automation-Hub --workflow detect-private-changes.yml --limit 30 --json createdAt,event,conclusion`）。
+- 真正的缺口在節流：PR #23 讓未帶 `force` 的喚醒只在 UTC 分鐘 `% 15 == 0` 做完整掃描，所以喚醒雖是 5 分鐘，完整掃描仍是 15 分鐘一次。本 change 把節流改為 `% 5`，`force=true` 繞過語意保留（Ai-agent 的 hub-ci-kick hook 依賴它）。
 - 為什麼值得做：`hub-ci-kick.sh` 只在 `gh pr ready` 與非 Draft 的 `gh pr create` 立即喚醒；網頁手動 Ready、hook 失敗、以及 **push 新 commit 到已 Ready 的 PR** 都只能等輪詢。Hub 是 public repo，加密頻率不增加 Actions 費用。
-- 動手前先查清楚：2026-10-04 為何定為 15 分鐘（現有文件只記錄 live cadence，未記原因）。
-- 驗收：以 `gh run list --workflow detect-private-changes.yml` 的實際 run 間隔為證，連續至少 6 次約 5 分鐘才算；不以設定頁為證。2026-10-09 基線：連續 38 次間隔 14.7–15.3 分鐘。
-- 完成後更新 README「每 15 分鐘」字樣、`docs/external-scheduler.md` 與 `private-change-detection` spec。
+- 2026-10-04 為何定為 15 分鐘：Unknown（現有文件只記錄 live cadence，未記原因；本 change 不假設原因）。
+- 待辦：PR 合併（需使用者在對話中針對該 PR 明確指示）→ **merge 後 live 驗收**：以 `gh run list --workflow detect-private-changes.yml` 的實際 run 間隔為證，連續至少 6 次完整掃描（非節流 SKIP）、間隔約 5 分鐘才算；不以設定頁為證。2026-10-09 基線：連續 38 次間隔 14.7–15.3 分鐘。通過後歸檔 change（不加 `--skip-specs`，套用 delta 到 canonical spec）。
+- 另案：Ai-agent 的 `openspec/specs/hook-wiring-integrity/spec.md` 仍寫「15 分鐘節流」與「UTC 分鐘不是 00、15、30、45」，需另開 Ai-agent PR 改成 5 分鐘。
+- 取代：`align-external-scheduler-to-15m`（方向相反）已於 2026-10-23 以 `--skip-specs` 歸檔。
+
+### 待辦（只記錄、不實作）：ObsidianBook `vault-health.yml` 的 pull_request trigger 改由 Hub 承接
+
+2026-10-23 使用者決定先記錄、不實作。屬跨 repo 完整流程（Hub、ObsidianBook、soda-cloud-agent），動工前需另開 OpenSpec change。
+
+- 效益：依 2026-10-13～10-23 實測，`vault-health` 是 private Actions 最大的剩餘消耗，約 20 分鐘／10 天。
+- 前置條件一：Hub 的 repo-06 要支援 PR 模式。目前 PR 模式只支援 repo-01～05，repo-06 只驗 main（`sha` 帶 repo-06 會在任何網路請求前失敗）。
+- 前置條件二：soda-cloud-agent 的 `claude.yml`／`gemini.yml` 目前以 `vault-health.yml` 的 run 作為 vault PR 的等待條件（約第 343／416 行），要改成等 `automation-hub/private-ci` status。
 
 ## Next Action
 

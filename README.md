@@ -8,7 +8,7 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 
 - **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
 - **PR head 驗證**：對 repo-01～05 的 Ready PR head 跑同一套 CI，並把結果回寫為 PR 上的 commit status（見「PR 模式」）。
-- **每 15 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
+- **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
 契約只涵蓋「唯讀 CI 與健康證據」，另有兩個具名例外，見「契約邊界與具名例外」。Hub 的綠燈是建議性證據，而且 `SKIP` 不等於已驗證，見「SKIP 不等於已驗證」。
@@ -43,7 +43,7 @@ Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀�
 
 ~~~text
 手動 workflow_dispatch
-或 external change detector（每 15 分鐘；2026-10-04 live cadence 已驗證）
+或 external change detector（每 5 分鐘；live 完整掃描間隔待 `detector-cadence-5m` 驗收）
             |
             v
 repo-01 .. repo-06          僅公開 alias
@@ -145,11 +145,11 @@ private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍�
 
 PR 模式假設 PR 程式碼與 default branch 同樣可信（同一 owner 與其 AI 代理）；若日後接受外部貢獻者的 PR，必須重新評估，因為 PR 程式碼會在持有 read token 的 job 中執行。
 
-## Private repo 變更偵測（15 分鐘；live cadence 已驗證）
+## Private repo 變更偵測（5 分鐘；live 完整掃描間隔待驗收）
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
-喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。2026-10-04 live Actions evidence 顯示 04:15:09Z 至 06:00:23Z 連續 8 個 `workflow_dispatch` runs 皆成功，且相鄰間隔約 15 分鐘，runtime 行為已符合 15 分鐘 cadence。由於本執行環境未直接登入 cron-job.org 讀取設定頁，這份證據只確認 live 行為，不把 scheduler UI 的 minutes 欄位冒充為已直接驗證；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
+喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。2026-10-23 起 cadence 改為每 5 分鐘（`detector-cadence-5m`）：當天 02:55:06Z 至 03:40:10Z 的 10 個 `workflow_dispatch` runs 相鄰間隔已約 5 分鐘，但在節流改為 UTC 分鐘 `% 5` 之前，其中只有分鐘為 00／15／30／45 的 run 會做完整掃描，其餘因 PR #23 的節流而 `SKIP`；完整掃描間隔是否已降為約 5 分鐘，待 merge 後以 live runs 驗收。歷史證據：2026-10-04 live Actions evidence 顯示 04:15:09Z 至 06:00:23Z 連續 8 個 `workflow_dispatch` runs 皆成功，且相鄰間隔約 15 分鐘，當時 runtime 行為符合 15 分鐘 cadence。由於本執行環境未直接登入 cron-job.org 讀取設定頁，這些證據只確認 live 行為，不把 scheduler UI 的 minutes 欄位冒充為已直接驗證；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
 
 Detector 不會固定重跑六倉，而是：
 
@@ -295,6 +295,6 @@ Cleanup 階段會刪除所有暫存 command files，最後只發布 Hub 自己�
 
 - `openspec/changes/public-ci-automation-hub/` — Phase 1 唯讀 CI 復原與六倉 rollout。
 - `openspec/changes/run-private-pr-heads/` — PR head 驗證與 commit status 回寫。
-- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 15 分鐘 private change detector 與 Hub-code regression trigger。
+- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 5 分鐘 private change detector 與 Hub-code regression trigger。
 
 實作需同時遵守兩個 change 中的安全、遷移與驗證規則。

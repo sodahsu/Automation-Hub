@@ -1,4 +1,4 @@
-# 由外部 scheduler 每 15 分鐘以 workflow_dispatch 喚醒；GitHub 原生 schedule 實測幾乎不觸發，且與外部喚醒互相 cancel，故移除。
+# 由外部 scheduler 每 5 分鐘以 workflow_dispatch 喚醒；GitHub 原生 schedule 實測幾乎不觸發，且與外部喚醒互相 cancel，故移除。
 # 只對尚未被 Public CI 涵蓋的新 push dispatch 對應 alias。
 name: Detect Private Repository Changes
 
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Bypass 15-minute detector throttle"
+        description: "Bypass 5-minute detector throttle"
         required: false
         default: false
         type: boolean
@@ -41,16 +41,17 @@ jobs:
           set -Eeuo pipefail
           umask 077
 
-          # 外部 scheduler 的正式契約是每 15 分鐘，但曾觀察到每 5 分鐘喚醒。
-          # workflow_dispatch 若未明確 force，只在 UTC 分鐘 00/15/30/45 做完整掃描；
-          # 其餘喚醒立即結束，不讀 private API、不 dispatch CI。
+          # 外部 scheduler 的正式契約是每 5 分鐘。
+          # workflow_dispatch 若未明確 force，只在 UTC 分鐘為 5 的倍數時做完整掃描；
+          # 其餘喚醒（例如手動或 scheduler 偏移造成的非格點喚醒）立即結束，不讀 private API、不 dispatch CI。
+          # force=true 繞過此節流，Ai-agent 的 hub-ci-kick hook 依賴這個語意。
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${FORCE_DETECT:-false}" != "true" ]]; then
             minute="$(date -u +%M)"
-            if (( 10#${minute} % 15 != 0 )); then
+            if (( 10#${minute} % 5 != 0 )); then
               {
                 echo "## Private CI change detector"
                 echo
-                echo "SKIP — early wake throttled; full detection runs every 15 minutes."
+                echo "SKIP — early wake throttled; full detection runs every 5 minutes."
               } >> "${GITHUB_STEP_SUMMARY}"
               exit 0
             fi
