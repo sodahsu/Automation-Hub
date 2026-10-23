@@ -8,11 +8,12 @@
 ## Resume Here
 
 - 目前 owner：Automation-Hub 的 public CI / private-repo orchestration。
-- ACTIVE：1（`detector-cadence-5m`，等 PR 合併與 live 驗收，見下方）。
+- ACTIVE：0。
 - WAITING-HUMAN：`claude-0700-minimal-wake`（見下方「進行中：claude-0700-minimal-wake」）。`claude-window-trigger` 已於 2026-10-23 撤銷（dropped）並歸檔，workflow 與文件已刪除；`align-external-scheduler-to-15m` 已於 2026-10-23 被 `detector-cadence-5m` 取代並歸檔。
 - 2026-10-13 PR #23（`perf/throttle-private-detector-20261012`）已合併；workflow 端加入每 15 分鐘（UTC 00/15/30/45）節流檢查，防禦非整數倍分的過早喚醒（2026-10-23 起由 `detector-cadence-5m` 改為每 5 分鐘）。
 - 2026-10-09 起 `run-private-pr-heads` 已歸檔（使用者批准）；四項使用者端驗證延後，仍在下方「Next Action」，清單見 `openspec/changes/archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 - CLOSEOUT：0。
+- 2026-10-23 detector-cadence-5m 已於 PR #26 合併並完成 live 驗收；14 個連續完整掃描、間隔 4:45–5:06，證據與歸檔見 `openspec/changes/archive/2026-10-23-detector-cadence-5m/`。
 
 ## Completed
 
@@ -35,15 +36,14 @@ Hub 端 runtime 已成立。Task 4.2 的 Ai-agent architecture contract 已進�
 
 Hub repo 本身不修改 workflow；Ai-agent #543 / Automation-Hub run `37190764398` 已 success，因此 task 4.2 已回填完成。
 
-### 進行中：detector-cadence-5m（detector 輪詢 15 分鐘 → 5 分鐘）
+### 已完成：detector-cadence-5m（detector 輪詢 15 分鐘 → 5 分鐘）
 
-- 2026-10-09 登記，2026-10-23 使用者決定改 5 分鐘，change：`openspec/changes/detector-cadence-5m/`（分支 `task/detector-cadence-5m`）。
+- 2026-10-09 登記，2026-10-23 使用者決定改 5 分鐘，change 已歸檔：`openspec/changes/archive/2026-10-23-detector-cadence-5m/`。
 - cron-job.org 已經是 5 分鐘，不需使用者再改設定。證據：2026-10-23 detector runs 的建立時間為 02:55:06、03:00:33、03:05:06、03:10:10、03:15:11、03:20:10、03:25:06、03:30:21、03:35:06、03:40:10Z（`gh run list -R sodahsu/Automation-Hub --workflow detect-private-changes.yml --limit 30 --json createdAt,event,conclusion`）。
 - 真正的缺口在節流：PR #23 讓未帶 `force` 的喚醒只在 UTC 分鐘 `% 15 == 0` 做完整掃描，所以喚醒雖是 5 分鐘，完整掃描仍是 15 分鐘一次。本 change 把節流改為 `% 5`，`force=true` 繞過語意保留（Ai-agent 的 hub-ci-kick hook 依賴它）。
 - 為什麼值得做：`hub-ci-kick.sh` 只在 `gh pr ready` 與非 Draft 的 `gh pr create` 立即喚醒；網頁手動 Ready、hook 失敗、以及 **push 新 commit 到已 Ready 的 PR** 都只能等輪詢。Hub 是 public repo，加密頻率不增加 Actions 費用。
 - 2026-10-04 為何定為 15 分鐘：Unknown（現有文件只記錄 live cadence，未記原因；本 change 不假設原因）。
-- 待辦：PR 合併（需使用者在對話中針對該 PR 明確指示）→ **merge 後 live 驗收**：以 `gh run list --workflow detect-private-changes.yml` 的實際 run 間隔為證，連續至少 6 次完整掃描（非節流 SKIP）、間隔約 5 分鐘才算；不以設定頁為證。2026-10-09 基線：連續 38 次間隔 14.7–15.3 分鐘。通過後歸檔 change（不加 `--skip-specs`，套用 delta 到 canonical spec）。
-- 另案：Ai-agent 的 `openspec/specs/hook-wiring-integrity/spec.md` 仍寫「15 分鐘節流」與「UTC 分鐘不是 00、15、30、45」，需另開 Ai-agent PR 改成 5 分鐘。
+- 完成：PR #26 已合併（`9edcad7`）；2026-10-23 04:35–05:45Z 有 15 個連續完整掃描 run，相鄰建立間隔 4:45–5:26（排除非排程喚醒後，排程 run 彼此間隔 4:45–5:06）；證據見歸檔 evidence。Ai-agent PR #655 已將 `hook-wiring-integrity` 改為 5 分鐘。
 - 取代：`align-external-scheduler-to-15m`（方向相反）已於 2026-10-23 以 `--skip-specs` 歸檔。
 
 ### 進行中：claude-0700-minimal-wake（07:00 喚醒改由外部排程為主）

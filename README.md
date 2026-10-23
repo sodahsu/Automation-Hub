@@ -44,7 +44,7 @@ Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀�
 
 ~~~text
 手動 workflow_dispatch
-或 external change detector（每 5 分鐘；live 完整掃描間隔待 `detector-cadence-5m` 驗收）
+或 external change detector（每 5 分鐘；2026-10-23 live 驗收確認完整掃描間隔約 5 分鐘）
             |
             v
 repo-01 .. repo-06          僅公開 alias
@@ -146,11 +146,11 @@ private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍�
 
 PR 模式假設 PR 程式碼與 default branch 同樣可信（同一 owner 與其 AI 代理）；若日後接受外部貢獻者的 PR，必須重新評估，因為 PR 程式碼會在持有 read token 的 job 中執行。
 
-## Private repo 變更偵測（5 分鐘；live 完整掃描間隔待驗收）
+## Private repo 變更偵測（5 分鐘；live 驗收完成）
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
-喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。2026-10-23 起 cadence 改為每 5 分鐘（`detector-cadence-5m`）：當天 02:55:06Z 至 03:40:10Z 的 10 個 `workflow_dispatch` runs 相鄰間隔已約 5 分鐘，但在節流改為 UTC 分鐘 `% 5` 之前，其中只有分鐘為 00／15／30／45 的 run 會做完整掃描，其餘因 PR #23 的節流而 `SKIP`；完整掃描間隔是否已降為約 5 分鐘，待 merge 後以 live runs 驗收。歷史證據：2026-10-04 live Actions evidence 顯示 04:15:09Z 至 06:00:23Z 連續 8 個 `workflow_dispatch` runs 皆成功，且相鄰間隔約 15 分鐘，當時 runtime 行為符合 15 分鐘 cadence。由於本執行環境未直接登入 cron-job.org 讀取設定頁，這些證據只確認 live 行為，不把 scheduler UI 的 minutes 欄位冒充為已直接驗證；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
+喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。PR #26（2026-10-23，merge commit `9edcad7`）將完整掃描節流改為每 5 分鐘；合併後 04:35–05:45Z live 驗收確認至少 6 個連續完整掃描，完整證據見 `openspec/changes/archive/2026-10-23-detector-cadence-5m/evidence/live-cadence-2026-10-23.md`。歷史證據：2026-10-04 live Actions evidence 顯示 04:15:09Z 至 06:00:23Z 連續 8 個 `workflow_dispatch` runs 皆成功，且相鄰間隔約 15 分鐘，當時 runtime 行為符合 15 分鐘 cadence。由於本執行環境未直接登入 cron-job.org 讀取設定頁，這些證據只確認 live 行為，不把 scheduler UI 的 minutes 欄位冒充為已直接驗證；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
 
 Detector 不會固定重跑六倉，而是：
 
