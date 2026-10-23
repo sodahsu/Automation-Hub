@@ -8,42 +8,43 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 
 - **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
 - **PR head 驗證**：對 repo-01～05 的 Ready PR head 跑同一套 CI，並把結果回寫為 PR 上的 commit status（見「PR 模式」）。
-- **每 15 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
+- **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
-契約只涵蓋「唯讀 CI 與健康證據」，另有兩個具名例外，見「契約邊界與具名例外」。Hub 的綠燈是建議性證據，而且 `SKIP` 不等於已驗證，見「SKIP 不等於已驗證」。
+契約只涵蓋「唯讀 CI 與健康證據」，另有一個具名例外，見「契約邊界與具名例外」。Hub 的綠燈是建議性證據，而且 `SKIP` 不等於已驗證，見「SKIP 不等於已驗證」。
 
 ## 契約邊界與具名例外
 
 Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀取 private repo、只回寫 commit status，不 push、不部署、不持有任何 canonical 內容。
 
-契約內只有下面兩個具名例外。它們不是 CI，也完全不碰 private repo；放在這個公開儲存庫，是因為 GitHub-hosted runner 在 Public repo 不佔用額度：
+契約內只有下面這個具名例外。它不是 CI，也完全不碰 private repo；放在這個公開儲存庫，是因為 GitHub-hosted runner 在 Public repo 不佔用額度：
 
 | Workflow | 做什麼 | 觸發 |
 | --- | --- | --- |
-| `claude-0700-wake.yml` | 每天固定時間送出一個單回合、固定回應的最小 Claude 請求 | `schedule`、`workflow_dispatch` |
-| `claude-window-trigger.yml` | 每天固定四個時段送出同樣的最小請求；scheduled run 預設 dry-run，必須明確啟用 repository variable 才會真的呼叫 | `schedule`、`workflow_dispatch` |
+| `claude-0700-wake.yml` | 每天 07:00（Asia/Taipei）送出一個單回合、固定回應的最小 Claude 請求 | 主要：外部排程（cron-job.org）呼叫 `workflow_dispatch`；備援：`schedule`（同一台北日期已成功喚醒過就跳過） |
 
-兩者使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。
+它使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。GitHub `schedule` 實測落在台北 08:28–11:15，不能當 07:00 的來源，所以由外部排程為主、`schedule` 為備援；備援的冪等防呆與外部排程的設定見 `docs/external-scheduler.md`「07:00 Claude wake job」。
+
+曾經有第二個例外 `claude-window-trigger.yml`（每天四個時段的最小請求）。它從未啟用（scheduled run 一律 dry-run，所需的 `CLAUDE_CODE_OAUTH_TOKEN` 也不存在），2026-10-23 撤銷並刪除，見 `openspec/changes/archive/2026-10-23-claude-window-trigger/`。
 
 ### 例外的風險邊界
 
-下列四項是例外成立的前提。任何一項不再成立，必須先停用這兩個 workflow，再回頭修改契約：
+下列四項是例外成立的前提。任何一項不再成立，必須先停用這個 workflow，再回頭修改契約：
 
 1. **只由 `schedule` 與 `workflow_dispatch` 觸發。** 沒有 `pull_request`、`pull_request_target`、`push`、issue 或 comment 類觸發；`scripts/security/audit.py` 另外檢查所有 workflow 不得使用 `pull_request_target`（在 workflow 異動併入 `main` 時執行）。
-2. **fork PR 拿不到這些 secret。** fork PR 沒有任何路徑能觸發這兩個 workflow，且 GitHub 不會把 repository secret 交給 fork 發起的 `pull_request` run。
-3. **不 checkout private repo。** window trigger 完全不 checkout；wake workflow 最多 checkout 本儲存庫自己（`persist-credentials: false`）。兩者都不引用任何 private repo 相關的 secret。
+2. **fork PR 拿不到這個 secret。** fork PR 沒有任何路徑能觸發這個 workflow，且 GitHub 不會把 repository secret 交給 fork 發起的 `pull_request` run。
+3. **不 checkout private repo。** wake workflow 最多 checkout 本儲存庫自己（`persist-credentials: false`），不引用任何 private repo 相關的 secret。
 4. **只有 repository owner 能觸發。** `workflow_dispatch` 需要 repo 的 write 權限，所以這一項取決於沒有其他擁有 write 權限的協作者；workflow 檔案本身沒有觸發者（`github.actor`）檢查。這一項必須在 Settings → Collaborators 確認，無法由 workflow 檔案證明。
 
-其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read`，wake workflow 另有 `id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）；window trigger 另外停用所有內建工具與 MCP，並在偵測到 API key 時拒絕執行，避免意外走按量計費。
+其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read`、`id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）與 `actions: read`（冪等防呆唯讀查本 workflow 的歷史 run）。
 
-殘留風險：個人 OAuth credential 存放在公開儲存庫的 Secret。能改動並執行 workflow 的人都讀得到它，最大影響是該個人帳號的額度被他人消耗，因此第 4 項是整個例外最關鍵的前提。
+殘留風險：個人 OAuth credential 存放在公開儲存庫的 Secret。能改動並執行 workflow 的人都讀得到它，最大影響是該個人帳號的額度被他人消耗，因此第 4 項是整個例外最關鍵的前提。外部排程用的專用 dispatch token（Actions：Read and write）存在 cron-job.org，外洩時同樣能 dispatch 本 workflow 而消耗額度，風險等級與 detector 的專用 token 相同。
 
 ## 架構
 
 ~~~text
 手動 workflow_dispatch
-或 external change detector（每 15 分鐘；2026-10-04 live cadence 已驗證）
+或 external change detector（每 5 分鐘；live 完整掃描間隔待 `detector-cadence-5m` 驗收）
             |
             v
 repo-01 .. repo-06          僅公開 alias
@@ -145,11 +146,11 @@ private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍�
 
 PR 模式假設 PR 程式碼與 default branch 同樣可信（同一 owner 與其 AI 代理）；若日後接受外部貢獻者的 PR，必須重新評估，因為 PR 程式碼會在持有 read token 的 job 中執行。
 
-## Private repo 變更偵測（15 分鐘；live cadence 已驗證）
+## Private repo 變更偵測（5 分鐘；live 完整掃描間隔待驗收）
 
 Detector workflow：`.github/workflows/detect-private-changes.yml`
 
-喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。2026-10-04 live Actions evidence 顯示 04:15:09Z 至 06:00:23Z 連續 8 個 `workflow_dispatch` runs 皆成功，且相鄰間隔約 15 分鐘，runtime 行為已符合 15 分鐘 cadence。由於本執行環境未直接登入 cron-job.org 讀取設定頁，這份證據只確認 live 行為，不把 scheduler UI 的 minutes 欄位冒充為已直接驗證；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
+喚醒來源：外部 scheduler（cron-job.org）呼叫 detector 的 `workflow_dispatch`。2026-10-23 起 cadence 改為每 5 分鐘（`detector-cadence-5m`）：當天 02:55:06Z 至 03:40:10Z 的 10 個 `workflow_dispatch` runs 相鄰間隔已約 5 分鐘，但在節流改為 UTC 分鐘 `% 5` 之前，其中只有分鐘為 00／15／30／45 的 run 會做完整掃描，其餘因 PR #23 的節流而 `SKIP`；完整掃描間隔是否已降為約 5 分鐘，待 merge 後以 live runs 驗收。歷史證據：2026-10-04 live Actions evidence 顯示 04:15:09Z 至 06:00:23Z 連續 8 個 `workflow_dispatch` runs 皆成功，且相鄰間隔約 15 分鐘，當時 runtime 行為符合 15 分鐘 cadence。由於本執行環境未直接登入 cron-job.org 讀取設定頁，這些證據只確認 live 行為，不把 scheduler UI 的 minutes 欄位冒充為已直接驗證；設定與專用 token 規範見 `docs/external-scheduler.md`。GitHub 原生 `schedule` 在本儲存庫實測幾乎不觸發，已移除。
 
 Detector 不會固定重跑六倉，而是：
 
@@ -297,6 +298,6 @@ Cleanup 階段會刪除所有暫存 command files，最後只發布 Hub 自己�
 
 - `openspec/changes/public-ci-automation-hub/` — Phase 1 唯讀 CI 復原與六倉 rollout。
 - `openspec/changes/run-private-pr-heads/` — PR head 驗證與 commit status 回寫。
-- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 15 分鐘 private change detector 與 Hub-code regression trigger。
+- `openspec/specs/private-change-detection/`（change 已歸檔於 `openspec/changes/archive/2026-09-25-automatic-private-ci-sweep/`）— 每 5 分鐘 private change detector 與 Hub-code regression trigger。
 
 實作需同時遵守兩個 change 中的安全、遷移與驗證規則。

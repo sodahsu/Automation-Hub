@@ -1,3 +1,6 @@
+# 主要觸發來源：cron-job.org 在 07:00 Asia/Taipei 以 workflow_dispatch 喚醒（設定見 docs/external-scheduler.md）。
+# GitHub schedule 只是備援：實測（2026-09-29 至 2026-10-23 共 25 筆）落在台北 08:28–11:15，比 07:00 晚 1.5–4.3 小時，
+# 不能當準點來源，所以 schedule 觸發前先過冪等防呆，當日已喚醒成功就不再呼叫 Claude。
 name: Claude 07:00 Wake
 
 on:
@@ -9,6 +12,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  actions: read # 冪等防呆只讀本 workflow 的歷史 run；不是寫入權限
 
 concurrency:
   group: claude-0700-wake
@@ -27,7 +31,18 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Idempotency guard
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_FILE: claude-0700-wake.yml
+          # 必須與下面呼叫 Claude 的 step 名稱完全一致；guard 靠它判斷當日是否真的喚醒過。
+          CLAUDE_STEP_NAME: Trigger Claude for piscean0619
+        run: bash scripts/wake/wake-guard.sh
+
+      # 改名時要同步 guard step 的 CLAUDE_STEP_NAME，否則防呆會認不得當日的喚醒。
       - name: Trigger Claude for piscean0619
+        if: steps.guard.outputs.should_wake == 'true'
         uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_PISCEAN0619_OAUTH_TOKEN }}
