@@ -19,7 +19,7 @@
 |---|---|---|
 | `detector-cadence-5m` | CLOSEOUT | detector 節流改為 UTC 分鐘 `% 5`，契約由 15 分鐘改為 5 分鐘（cron-job.org 已是 5 分鐘）。等待 merge 後的 live 驗收：至少 6 個連續做了完整掃描、相鄰間隔約 5 分鐘的 detector runs；通過後歸檔（套用 delta 到 canonical spec，不加 `--skip-specs`）。 |
 | `trigger-openspec-validation-on-pr` | ARCHIVED | 2026-10-04 完成 opened / synchronize / ready_for_review runtime 驗證，canonical `ci-pr-validation` 已建立並歸檔。 |
-| `claude-0700-minimal-wake` | WAITING-HUMAN | workflow 已 scheduled success；剩 OAuth 帳號身分、usage/reset 與離線觀察。 |
+| `claude-0700-minimal-wake` | WAITING-HUMAN | 2026-10-23 修訂：GitHub `schedule` 實測落在台北 08:28–11:15（晚 1.5–4.3 小時），改為 cron-job.org 在 07:00 以 `workflow_dispatch` 為主、`schedule` 為備援，並加冪等防呆（`scripts/wake/wake-guard.sh`，本機 stub 測試通過）。尚待：PR 合併 → 使用者建立 cron-job.org 07:00 job → 連續 3 天 07:00 ± 5 分驗收；另有 OAuth 帳號身分（5.1）與 usage window 觀察（8.1、8.2）。**不 archive**：`openspec/project.md` 要求 runtime observation 未完成必須留 active，且沒有使用者針對本 change 的延後批准。清單見該 change `tasks.md` 檔尾「使用者驗收清單」。 |
 | `claude-window-trigger` | ARCHIVED（dropped） | 2026-10-23 撤銷：從未啟用（一律 dry-run、`CLAUDE_CODE_OAUTH_TOKEN` 不存在），用途與 `claude-0700-minimal-wake` 重疊；workflow 與文件已刪除，以 `--skip-specs` 歸檔。 |
 | `align-claude-code-action-version` | ARCHIVED | 2026-10-04 以 deferred / no production change 收納；未執行跨 repo 升級。 |
 
@@ -37,5 +37,5 @@
 ## 優先順序
 
 1. CLOSEOUT：`detector-cadence-5m` 只剩 merge 後的 live 驗收與歸檔；目前沒有 Hub repo 內可直接完成的 ACTIVE change。
-2. WAITING-HUMAN（含 scheduler 精確設定／review）不阻塞已觀察到的 Hub runtime health。
+2. WAITING-HUMAN：`claude-0700-minimal-wake`（PR 合併後，由使用者建立 cron-job.org 07:00 job 並做 3 天準時性驗收）；不阻塞已觀察到的 Hub runtime health。
 3. action-version 調查已歸檔；若未來要升級，應在 owning repo 重新開 change。

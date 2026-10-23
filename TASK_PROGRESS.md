@@ -9,7 +9,7 @@
 
 - 目前 owner：Automation-Hub 的 public CI / private-repo orchestration。
 - ACTIVE：1（`detector-cadence-5m`，等 PR 合併與 live 驗收，見下方）。
-- WAITING-HUMAN：`claude-0700-minimal-wake`。`claude-window-trigger` 已於 2026-10-23 撤銷（dropped）並歸檔，workflow 與文件已刪除；`align-external-scheduler-to-15m` 已於 2026-10-23 被 `detector-cadence-5m` 取代並歸檔。
+- WAITING-HUMAN：`claude-0700-minimal-wake`（見下方「進行中：claude-0700-minimal-wake」）。`claude-window-trigger` 已於 2026-10-23 撤銷（dropped）並歸檔，workflow 與文件已刪除；`align-external-scheduler-to-15m` 已於 2026-10-23 被 `detector-cadence-5m` 取代並歸檔。
 - 2026-10-13 PR #23（`perf/throttle-private-detector-20261012`）已合併；workflow 端加入每 15 分鐘（UTC 00/15/30/45）節流檢查，防禦非整數倍分的過早喚醒（2026-10-23 起由 `detector-cadence-5m` 改為每 5 分鐘）。
 - 2026-10-09 起 `run-private-pr-heads` 已歸檔（使用者批准）；四項使用者端驗證延後，仍在下方「Next Action」，清單見 `openspec/changes/archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 - CLOSEOUT：0。
@@ -46,6 +46,16 @@ Hub repo 本身不修改 workflow；Ai-agent #543 / Automation-Hub run `37190764
 - 另案：Ai-agent 的 `openspec/specs/hook-wiring-integrity/spec.md` 仍寫「15 分鐘節流」與「UTC 分鐘不是 00、15、30、45」，需另開 Ai-agent PR 改成 5 分鐘。
 - 取代：`align-external-scheduler-to-15m`（方向相反）已於 2026-10-23 以 `--skip-specs` 歸檔。
 
+### 進行中：claude-0700-minimal-wake（07:00 喚醒改由外部排程為主）
+
+- 2026-10-23 使用者授權主代理裁決，change：`openspec/changes/claude-0700-minimal-wake/`（分支 `task/detector-cadence-5m`，與 `detector-cadence-5m` 同一條分支）。
+- 起因：GitHub `schedule` 25 筆（2026-09-29 至 2026-10-23）實測落在台北 08:28–11:15，比 07:00 晚 1 小時 28 分至 4 小時 15 分；cron 與 `timezone: Asia/Taipei` 沒有寫錯。證據：`openspec/changes/claude-0700-minimal-wake/evidence/scheduled-runs-2026-10-23.md`。
+- 已做（待 PR 合併）：`claude-0700-wake.yml` 加冪等防呆 step（`scripts/wake/wake-guard.sh`，只擋 `schedule`；當日已有「呼叫 Claude 的 step 成功」的 run 就 SKIP；查詢失敗 fail closed），權限加 `actions: read`；本機 stub 測試 `bash scripts/wake/test-wake-guard.sh` 通過。
+- 待辦（使用者）：PR 合併**之後**，依 `docs/external-scheduler.md`「07:00 Claude wake job」建立專用 token 與 cron-job.org 07:00 job；連續 3 天確認 `workflow_dispatch` run 在 07:00 ± 5 分鐘建立。另有 OAuth 帳號身分確認（5.1）與 usage window 觀察（8.1、8.2）。完整清單見該 change `tasks.md` 檔尾。
+- 合併前不要建立外部排程：`main` 上的舊 workflow 沒有防呆，會與 `schedule` 重複喚醒。
+- 不 archive：`openspec/project.md` 要求 runtime observation 未完成留 active。
+- 另：`claude-window-trigger` 已撤銷並刪除（從未啟用，見 `openspec/changes/archive/2026-10-23-claude-window-trigger/`）。
+
 ### 待辦（只記錄、不實作）：ObsidianBook `vault-health.yml` 的 pull_request trigger 改由 Hub 承接
 
 2026-10-23 使用者決定先記錄、不實作。屬跨 repo 完整流程（Hub、ObsidianBook、soda-cloud-agent），動工前需另開 OpenSpec change。
@@ -56,6 +66,7 @@ Hub repo 本身不修改 workflow；Ai-agent #543 / Automation-Hub run `37190764
 
 ## Next Action
 
+0. PR 合併後（需使用者在對話中針對該 PR 明確指示）：建立 cron-job.org 07:00 job 並做 3 天準時性驗收（見上方 claude-0700-minimal-wake）。
 1. 人工核對 `PRIVATE_REPOS_READ_TOKEN` / `PRIVATE_REPOS_STATUS_TOKEN` 是否只有文件要求的最小 scope。
 2. 若要完整驗收 manual entry，再手動 dispatch `target=repo-04 sha=<head>` 一次。
 3. 觀察至少下一輪 detector：已有 `automation-hub/private-ci` status 的同一 head 不重跑；未直接觀察前保持 known-unverified。
