@@ -281,39 +281,30 @@ if [[ "$target_alias" == "repo-04" ]]; then
     ' || { write_summary; exit "$overall_rc"; }
   fi
 
+  # 入口由目標 repo 自己的 registry 宣告，Hub 不維護第二份 stage 清單；
+  # 讀不到就 FAIL，不回退到其他入口，避免綠燈代表的範圍悄悄改變。
   stage="portable-ci-entrypoint"
-  log_file="${RUNNER_TEMP:-/tmp}/automation-hub-portable-ci-entrypoint.log"
-  command_file="${RUNNER_TEMP:-/tmp}/hub-portable-command"
+  portable_cmd=""
+  resolve_rc=0
   if [[ -z "${PRIVATE_REPOSITORY:-}" ]]; then
-    add_row "$stage" "FAIL (target repository slug unavailable)"
-    overall_rc=1
-  elif node -e '
-    const fs = require("node:fs");
-    const data = JSON.parse(fs.readFileSync("architecture/repos.json", "utf8"));
-    const item = data.repositories.find((entry) => entry?.repository === process.env.PRIVATE_REPOSITORY);
-    if (!item) process.exit(10);
-    if (typeof item.portableCiEntrypoint !== "string" || !item.portableCiEntrypoint.trim()) process.exit(11);
-    process.stdout.write(item.portableCiEntrypoint);
-  ' >"$command_file" 2>"$log_file"; then
-    if bash -c "$(cat "$command_file")" >"$log_file" 2>&1; then
-      add_row "$stage" "PASS"
-    else
-      rc=$?
-      add_row "$stage" "FAIL (entrypoint exit ${rc})"
-      overall_rc=$rc
-    fi
+    resolve_rc=12
   else
-    rc=$?
-    if (( rc == 10 )); then
-      add_row "$stage" "FAIL (target repository registry entry missing)"
-    elif (( rc == 11 )); then
-      add_row "$stage" "FAIL (portableCiEntrypoint missing or invalid)"
-    else
-      add_row "$stage" "FAIL (registry could not be read)"
-    fi
-    overall_rc=1
+    portable_cmd="$(node -e '
+      const fs = require("node:fs");
+      const data = JSON.parse(fs.readFileSync("architecture/repos.json", "utf8"));
+      const item = data.repositories.find((entry) => entry?.repository === process.env.PRIVATE_REPOSITORY);
+      if (!item) process.exit(10);
+      if (typeof item.portableCiEntrypoint !== "string" || !item.portableCiEntrypoint.trim()) process.exit(11);
+      process.stdout.write(item.portableCiEntrypoint);
+    ' 2>/dev/null)" || resolve_rc=$?
   fi
-  rm -f "$log_file" "$command_file"
+  case "$resolve_rc" in
+    0) run_stage "$stage" bash -c "$portable_cmd" || true ;;
+    10) add_row "$stage" "FAIL (target repository registry entry missing)"; overall_rc=1 ;;
+    11) add_row "$stage" "FAIL (portableCiEntrypoint missing or invalid)"; overall_rc=1 ;;
+    12) add_row "$stage" "FAIL (target repository slug unavailable)"; overall_rc=1 ;;
+    *) add_row "$stage" "FAIL (registry could not be read)"; overall_rc=1 ;;
+  esac
   write_summary
   exit "$overall_rc"
 fi

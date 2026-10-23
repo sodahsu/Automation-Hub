@@ -6,7 +6,7 @@ runner="$root/scripts/common/run-ci.sh"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-if rg -q 'shellcheck-scripts|skill-resolver-tests|spec-truth-gate|architecture-tests' "$runner"; then
+if grep -Eq 'shellcheck-scripts|skill-resolver-tests|spec-truth-gate|architecture-tests' "$runner"; then
   echo "run-ci.sh still contains the removed repo-specific stage list" >&2
   exit 1
 fi
@@ -27,10 +27,10 @@ for scenario in present missing; do
   PRIVATE_REPOSITORY='<owner/private-repository>' PORTABLE_MARKER="$marker" RUNNER_TEMP="$tmp" bash "$runner" "$workspace" "$summary" repo-04 >/dev/null 2>&1 || rc=$?
   if [[ "$scenario" == present ]]; then
     [[ "$rc" == 0 && -f "$marker" ]] || { echo "portable entrypoint did not run" >&2; exit 1; }
-    rg -q '\| portable-ci-entrypoint \| PASS \|' "$summary"
+    grep -Eq '\| portable-ci-entrypoint \| PASS \|' "$summary"
   else
     [[ "$rc" != 0 ]] || { echo "missing portable entrypoint unexpectedly passed" >&2; exit 1; }
-    rg -q '\| portable-ci-entrypoint \| FAIL \(portableCiEntrypoint missing or invalid\) \|' "$summary"
+    grep -Eq '\| portable-ci-entrypoint \| FAIL \(portableCiEntrypoint missing or invalid\) \|' "$summary"
   fi
 done
 
