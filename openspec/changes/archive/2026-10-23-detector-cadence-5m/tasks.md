@@ -26,16 +26,16 @@
 - [x] `openspec archive align-external-scheduler-to-15m --yes --skip-specs`（必須 `--skip-specs`，避免把 15 分鐘 delta 套回 canonical）。
 - [x] `openspec/changes/README.md`：移除舊列、加入本 change。
 
-## 5. 合併與 live 驗收（尚未完成）
+## 5. 合併與 live 驗收
 
-- [ ] PR 合併至 `main`（合併指示由使用者在對話中另行給）。
-- [ ] Live 驗收：合併後，`gh run list -R sodahsu/Automation-Hub --workflow detect-private-changes.yml --limit 30 --json databaseId,createdAt,event,conclusion` 出現至少 6 個連續、全部做了完整掃描、相鄰間隔約 5 分鐘（4～6 分鐘）的 `workflow_dispatch` runs。**不以 cron-job.org 設定頁為證。**
+- [x] PR #26 已合併至 `main`（2026-10-23 04:33:20Z；merge commit `9edcad7`）。
+- [x] Live 驗收：合併後有至少 6 個連續、全部做了完整掃描、相鄰間隔約 5 分鐘（4～6 分鐘）的 `workflow_dispatch` runs。**不以 cron-job.org 設定頁為證。**逐筆資料見 `evidence/live-cadence-2026-10-23.md`。
   - 判斷「完整掃描」：`gh api repos/sodahsu/Automation-Hub/actions/runs/<id>/jobs --jq '.jobs[].steps[] | select(.name=="Detect private push activity") | [.started_at,.completed_at] | @tsv'`，耗時 ≥ 10 秒者為完整掃描。2026-10-23 基線：完整掃描 27–33 秒、節流 `SKIP` 0–1 秒。
   - 剔除非排程喚醒：不在 5 分鐘格點上、同一秒成對建立（其中一個被 concurrency 取消）的 run（例如 2026-10-23 的 03:44:19、04:01:59、04:07:29Z）；推測為 `force=true` 喚醒，來源未驗證。
   - 基線（變更前）：2026-10-23 02:55–03:40Z 的 10 個排程喚醒，間隔約 5 分鐘，但其中只有 00／15／30／45 分的 run 做完整掃描。
-- [ ] 驗收證據寫入 `evidence/live-cadence-<日期>.md`。
-- [ ] 歸檔本 change：`openspec archive detector-cadence-5m --yes`（**不加** `--skip-specs`，因為要把 5 分鐘 delta 套到 canonical spec）；歸檔後 canonical spec 與 `openspec validate --all --strict` 需通過。
+- [x] 驗收證據寫入 `evidence/live-cadence-2026-10-23.md`。
+- [x] 歸檔本 change：`openspec archive detector-cadence-5m --yes`（**不加** `--skip-specs`，因為要把 5 分鐘 delta 套到 canonical spec）；歸檔後 canonical spec 與 `openspec validate --all --strict` 通過。
 
 ## 6. 後續（本 change 不做）
 
-- [ ] Ai-agent 的 `openspec/specs/hook-wiring-integrity/spec.md` 提到「繞過偵測器對一般 workflow_dispatch 的 15 分鐘節流」與「UTC 分鐘不是 00、15、30、45」的 scenario，需另開 Ai-agent PR 改成 5 分鐘。
+- [x] Ai-agent PR #655 已完成：`hook-wiring-integrity` 改為 5 分鐘。
