@@ -9,7 +9,7 @@
 
 - 目前 owner：Automation-Hub 的 public CI / private-repo orchestration。
 - ACTIVE：1（`detector-cadence-5m`，等 PR 合併與 live 驗收，見下方）。
-- WAITING-HUMAN：`claude-0700-minimal-wake`、`claude-window-trigger`。`align-external-scheduler-to-15m` 已於 2026-10-23 被 `detector-cadence-5m` 取代並歸檔。
+- WAITING-HUMAN：`claude-0700-minimal-wake`。`claude-window-trigger` 已於 2026-10-23 撤銷（dropped）並歸檔，workflow 與文件已刪除；`align-external-scheduler-to-15m` 已於 2026-10-23 被 `detector-cadence-5m` 取代並歸檔。
 - 2026-10-13 PR #23（`perf/throttle-private-detector-20261012`）已合併；workflow 端加入每 15 分鐘（UTC 00/15/30/45）節流檢查，防禦非整數倍分的過早喚醒（2026-10-23 起由 `detector-cadence-5m` 改為每 5 分鐘）。
 - 2026-10-09 起 `run-private-pr-heads` 已歸檔（使用者批准）；四項使用者端驗證延後，仍在下方「Next Action」，清單見 `openspec/changes/archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 - CLOSEOUT：0。

@@ -11,31 +11,32 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 - **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
-契約只涵蓋「唯讀 CI 與健康證據」，另有兩個具名例外，見「契約邊界與具名例外」。Hub 的綠燈是建議性證據，而且 `SKIP` 不等於已驗證，見「SKIP 不等於已驗證」。
+契約只涵蓋「唯讀 CI 與健康證據」，另有一個具名例外，見「契約邊界與具名例外」。Hub 的綠燈是建議性證據，而且 `SKIP` 不等於已驗證，見「SKIP 不等於已驗證」。
 
 ## 契約邊界與具名例外
 
 Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀取 private repo、只回寫 commit status，不 push、不部署、不持有任何 canonical 內容。
 
-契約內只有下面兩個具名例外。它們不是 CI，也完全不碰 private repo；放在這個公開儲存庫，是因為 GitHub-hosted runner 在 Public repo 不佔用額度：
+契約內只有下面這個具名例外。它不是 CI，也完全不碰 private repo；放在這個公開儲存庫，是因為 GitHub-hosted runner 在 Public repo 不佔用額度：
 
 | Workflow | 做什麼 | 觸發 |
 | --- | --- | --- |
 | `claude-0700-wake.yml` | 每天固定時間送出一個單回合、固定回應的最小 Claude 請求 | `schedule`、`workflow_dispatch` |
-| `claude-window-trigger.yml` | 每天固定四個時段送出同樣的最小請求；scheduled run 預設 dry-run，必須明確啟用 repository variable 才會真的呼叫 | `schedule`、`workflow_dispatch` |
 
-兩者使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。
+它使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。
+
+曾經有第二個例外 `claude-window-trigger.yml`（每天四個時段的最小請求）。它從未啟用（scheduled run 一律 dry-run，所需的 `CLAUDE_CODE_OAUTH_TOKEN` 也不存在），2026-10-23 撤銷並刪除，見 `openspec/changes/archive/2026-10-23-claude-window-trigger/`。
 
 ### 例外的風險邊界
 
-下列四項是例外成立的前提。任何一項不再成立，必須先停用這兩個 workflow，再回頭修改契約：
+下列四項是例外成立的前提。任何一項不再成立，必須先停用這個 workflow，再回頭修改契約：
 
 1. **只由 `schedule` 與 `workflow_dispatch` 觸發。** 沒有 `pull_request`、`pull_request_target`、`push`、issue 或 comment 類觸發；`scripts/security/audit.py` 另外檢查所有 workflow 不得使用 `pull_request_target`（在 workflow 異動併入 `main` 時執行）。
-2. **fork PR 拿不到這些 secret。** fork PR 沒有任何路徑能觸發這兩個 workflow，且 GitHub 不會把 repository secret 交給 fork 發起的 `pull_request` run。
-3. **不 checkout private repo。** window trigger 完全不 checkout；wake workflow 最多 checkout 本儲存庫自己（`persist-credentials: false`）。兩者都不引用任何 private repo 相關的 secret。
+2. **fork PR 拿不到這個 secret。** fork PR 沒有任何路徑能觸發這個 workflow，且 GitHub 不會把 repository secret 交給 fork 發起的 `pull_request` run。
+3. **不 checkout private repo。** wake workflow 最多 checkout 本儲存庫自己（`persist-credentials: false`），不引用任何 private repo 相關的 secret。
 4. **只有 repository owner 能觸發。** `workflow_dispatch` 需要 repo 的 write 權限，所以這一項取決於沒有其他擁有 write 權限的協作者；workflow 檔案本身沒有觸發者（`github.actor`）檢查。這一項必須在 Settings → Collaborators 確認，無法由 workflow 檔案證明。
 
-其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read`，wake workflow 另有 `id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）；window trigger 另外停用所有內建工具與 MCP，並在偵測到 API key 時拒絕執行，避免意外走按量計費。
+其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read` 與 `id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）。
 
 殘留風險：個人 OAuth credential 存放在公開儲存庫的 Secret。能改動並執行 workflow 的人都讀得到它，最大影響是該個人帳號的額度被他人消耗，因此第 4 項是整個例外最關鍵的前提。
 
