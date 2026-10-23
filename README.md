@@ -219,24 +219,9 @@ Regression matrix：
 4. 不存在的 optional script 標記為 `SKIP`。
 5. 不自行發明 target repo 原本沒有的 CI command。
 
-### `repo-04` 專屬 adapter
+### `repo-04` portable CI entrypoint
 
-`repo-04` 的 private CI 比 package-level `check:ci` 更完整，因此 Hub 額外鏡像其唯讀驗證 gate，包括：
-
-- ShellCheck
-- governance
-- architecture tests / contract / drift
-- skill resolver / registry / routing
-- runner integration
-- skill audit
-- shared-path audit
-- spec-governance
-- spec-truth-gate
-- target 原有 `check:ci`
-
-Adapter 只建立沒有 remote、沒有 credential 的本機暫時 Git baseline；cleanup 時整個 workspace 都會移除。
-
-`local-git-baseline` 與 `shellcheck-tool` 仍依序執行並在失敗時立即停止；後續檢查最多分四條 lane 平行執行（ShellCheck 各最多四個檔案同時檢查），任一 stage 失敗後其餘 lane 與後續 stage 仍會跑完，summary 維持原 stage 順序，並以原順序第一個失敗 stage 的 exit code 結束。
+Hub 依 `architecture/repos.json` 中目標 repository 條目的 `portableCiEntrypoint` 執行單一 `portable-ci-entrypoint` stage。找不到目標條目或欄位缺席／無效時會明確 FAIL，不會改跑其他入口。執行前仍建立沒有 remote、沒有 credential 的本機暫時 Git baseline；cleanup 時整個 workspace 都會移除。
 
 ### `repo-05` contract adapter
 
