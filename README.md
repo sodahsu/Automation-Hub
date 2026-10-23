@@ -21,9 +21,9 @@ Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀�
 
 | Workflow | 做什麼 | 觸發 |
 | --- | --- | --- |
-| `claude-0700-wake.yml` | 每天固定時間送出一個單回合、固定回應的最小 Claude 請求 | `schedule`、`workflow_dispatch` |
+| `claude-0700-wake.yml` | 每天 07:00（Asia/Taipei）送出一個單回合、固定回應的最小 Claude 請求 | 主要：外部排程（cron-job.org）呼叫 `workflow_dispatch`；備援：`schedule`（同一台北日期已成功喚醒過就跳過） |
 
-它使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。
+它使用擁有者個人的 Claude OAuth credential，只為了在固定時間產生一次有效請求；不派工、不讀檔、不寫入。GitHub `schedule` 實測落在台北 08:28–11:15，不能當 07:00 的來源，所以由外部排程為主、`schedule` 為備援；備援的冪等防呆與外部排程的設定見 `docs/external-scheduler.md`「07:00 Claude wake job」。
 
 曾經有第二個例外 `claude-window-trigger.yml`（每天四個時段的最小請求）。它從未啟用（scheduled run 一律 dry-run，所需的 `CLAUDE_CODE_OAUTH_TOKEN` 也不存在），2026-10-23 撤銷並刪除，見 `openspec/changes/archive/2026-10-23-claude-window-trigger/`。
 
@@ -36,9 +36,9 @@ Automation-Hub 對外宣告的契約是「唯讀 CI 與健康證據」：只讀�
 3. **不 checkout private repo。** wake workflow 最多 checkout 本儲存庫自己（`persist-credentials: false`），不引用任何 private repo 相關的 secret。
 4. **只有 repository owner 能觸發。** `workflow_dispatch` 需要 repo 的 write 權限，所以這一項取決於沒有其他擁有 write 權限的協作者；workflow 檔案本身沒有觸發者（`github.actor`）檢查。這一項必須在 Settings → Collaborators 確認，無法由 workflow 檔案證明。
 
-其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read` 與 `id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）。
+其他限制：第三方 action 一律固定 commit SHA；單回合（`--max-turns 1`）、無 retry、無 artifact、無 cache；權限只有 `contents: read`、`id-token: write`（Claude action 做 OIDC 身分交換所需，不是 repo 寫入權限）與 `actions: read`（冪等防呆唯讀查本 workflow 的歷史 run）。
 
-殘留風險：個人 OAuth credential 存放在公開儲存庫的 Secret。能改動並執行 workflow 的人都讀得到它，最大影響是該個人帳號的額度被他人消耗，因此第 4 項是整個例外最關鍵的前提。
+殘留風險：個人 OAuth credential 存放在公開儲存庫的 Secret。能改動並執行 workflow 的人都讀得到它，最大影響是該個人帳號的額度被他人消耗，因此第 4 項是整個例外最關鍵的前提。外部排程用的專用 dispatch token（Actions：Read and write）存在 cron-job.org，外洩時同樣能 dispatch 本 workflow 而消耗額度，風險等級與 detector 的專用 token 相同。
 
 ## 架構
 
