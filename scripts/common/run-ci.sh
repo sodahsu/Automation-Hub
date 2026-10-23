@@ -15,6 +15,7 @@ mkdir -p "$(dirname "$summary_file")"
 
 declare -a rows=()
 overall_rc=0
+stage_results=""
 
 # 這些 stage 只負責備料或偵測環境：PASS 只代表前置條件成立，
 # 不代表目標程式碼的任何檢查被執行過。
@@ -75,6 +76,9 @@ write_summary() {
 
 cleanup_logs() {
   rm -f "${RUNNER_TEMP:-/tmp}"/automation-hub-*.log 2>/dev/null || true
+  if [[ -n "${stage_results:-}" ]]; then
+    rm -rf "$stage_results"
+  fi
 }
 trap cleanup_logs EXIT
 
@@ -281,41 +285,79 @@ if [[ "$target_alias" == "repo-04" ]]; then
 
   run_stage "shellcheck-tool" bash -c 'command -v shellcheck >/dev/null' || { write_summary; exit "$overall_rc"; }
 
-  run_stage "shellcheck-scripts" bash -c '
-    mapfile -d "" files < <(find scripts -type f -name "*.sh" -print0 2>/dev/null || true)
-    if ((${#files[@]})); then shellcheck --severity=error -e SC1090 -e SC1091 "${files[@]}"; fi
-  ' || { write_summary; exit "$overall_rc"; }
+  stage_results="$(mktemp -d "${RUNNER_TEMP:-/tmp}/automation-hub-stages.XXXXXX")"
+  run_parallel_stage() {
+    local stage="$1" rc=0
+    shift
+    run_stage "$stage" "$@" || rc=$?
+    printf '%s\n' "$rc" > "$stage_results/$stage"
+  }
 
-  run_stage "shellcheck-skills" bash -c '
-    mapfile -d "" files < <(find skills -type f -name "*.sh" -print0 2>/dev/null || true)
-    if ((${#files[@]})); then shellcheck --severity=error -e SC1090 -e SC1091 "${files[@]}"; fi
-  ' || { write_summary; exit "$overall_rc"; }
+  # 每條 lane 只寫自己的 stage log 與結果檔，summary rows 只由父行程依原順序寫入。
+  # 測試各自用隔離的暫存 repo；registry --check 與 spec audit 唯讀，可安全並行。
+  (
+    run_parallel_stage "shellcheck-scripts" bash -c '
+      find scripts -type f -name "*.sh" -print0 2>/dev/null | xargs -0 -P4 -I{} shellcheck --severity=error -e SC1090 -e SC1091 "{}"
+    '
+    run_parallel_stage "shellcheck-skills" bash -c '
+      find skills -type f -name "*.sh" -print0 2>/dev/null | xargs -0 -P4 -I{} shellcheck --severity=error -e SC1090 -e SC1091 "{}"
+    '
+  ) &
+  shellcheck_pid=$!
 
-  run_stage "governance" bash scripts/governance-check.sh || { write_summary; exit "$overall_rc"; }
-  run_stage "architecture-tests" python3 -m unittest discover -s architecture -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
-  run_stage "architecture-contract" python3 architecture/check.py || { write_summary; exit "$overall_rc"; }
-  run_stage "architecture-drift" bash scripts/repo-architecture-drift-check.sh --repo-only || { write_summary; exit "$overall_rc"; }
-  run_stage "skill-resolver-tests" python3 -m unittest discover -s scripts/test -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
-  run_stage "registry-check" bash scripts/generate-skill-registry.sh --check || { write_summary; exit "$overall_rc"; }
-  run_stage "routing-audit" python3 scripts/lib/skill_context.py audit || { write_summary; exit "$overall_rc"; }
-  run_stage "routing-matrix" python3 scripts/test/skill-routing-matrix.py || { write_summary; exit "$overall_rc"; }
-  run_stage "runner-integration" python3 scripts/test/skill-runner-integration.py || { write_summary; exit "$overall_rc"; }
-  run_stage "skill-audit" bash scripts/audit/skill-audit.sh || { write_summary; exit "$overall_rc"; }
+  run_parallel_stage "skill-resolver-tests" python3 -m unittest discover -s scripts/test -p "test_*.py" -v &
+  resolver_pid=$!
 
-  if [[ -f scripts/audit/shared-path-audit.sh ]]; then
-    run_stage "shared-path-audit" bash scripts/audit/shared-path-audit.sh || { write_summary; exit "$overall_rc"; }
-  else
-    add_row "shared-path-audit" "SKIP"
-  fi
+  run_parallel_stage "spec-truth-gate" python3 scripts/spec-governance/cli.py check --mode audit &
+  spec_pid=$!
 
-  run_stage "spec-governance-tests" python3 -m unittest discover -s scripts/spec-governance/tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
-  run_stage "spec-truth-gate" python3 scripts/spec-governance/cli.py check --mode audit || { write_summary; exit "$overall_rc"; }
+  (
+    run_parallel_stage "governance" bash scripts/governance-check.sh
+    run_parallel_stage "architecture-tests" python3 -m unittest discover -s architecture -p "test_*.py" -v
+    run_parallel_stage "architecture-contract" python3 architecture/check.py
+    run_parallel_stage "architecture-drift" bash scripts/repo-architecture-drift-check.sh --repo-only
+    run_parallel_stage "registry-check" bash scripts/generate-skill-registry.sh --check
+    run_parallel_stage "routing-audit" python3 scripts/lib/skill_context.py audit
+    run_parallel_stage "routing-matrix" python3 scripts/test/skill-routing-matrix.py
+    run_parallel_stage "runner-integration" python3 scripts/test/skill-runner-integration.py
+    run_parallel_stage "skill-audit" bash scripts/audit/skill-audit.sh
 
-  if has_script "check:ci"; then
-    run_stage "check:ci" "${runner[@]}" "check:ci" || { write_summary; exit "$overall_rc"; }
-  else
-    add_row "check:ci" "SKIP"
-  fi
+    if [[ -f scripts/audit/shared-path-audit.sh ]]; then
+      run_parallel_stage "shared-path-audit" bash scripts/audit/shared-path-audit.sh
+    else
+      printf '%s\n' "SKIP" > "$stage_results/shared-path-audit"
+    fi
+
+    run_parallel_stage "spec-governance-tests" python3 -m unittest discover -s scripts/spec-governance/tests -p "test_*.py" -v
+
+    if has_script "check:ci"; then
+      run_parallel_stage "check:ci" "${runner[@]}" "check:ci"
+    else
+      printf '%s\n' "SKIP" > "$stage_results/check:ci"
+    fi
+  ) &
+  light_pid=$!
+
+  for pid in "$shellcheck_pid" "$resolver_pid" "$spec_pid" "$light_pid"; do
+    wait "$pid" || true
+  done
+
+  for stage in shellcheck-scripts shellcheck-skills governance architecture-tests architecture-contract architecture-drift \
+    skill-resolver-tests registry-check routing-audit routing-matrix runner-integration skill-audit shared-path-audit \
+    spec-governance-tests spec-truth-gate check:ci; do
+    # lane 若在寫入結果前就結束，該 stage 一律判 FAIL，不可變成綠燈。
+    rc=1
+    read -r rc < "$stage_results/$stage" || rc=1
+    if [[ "$rc" == "SKIP" ]]; then
+      add_row "$stage" "SKIP"
+    elif (( rc == 0 )); then
+      add_row "$stage" "PASS"
+    else
+      add_row "$stage" "FAIL (exit ${rc})"
+      if (( overall_rc == 0 )); then overall_rc=$rc; fi
+    fi
+  done
+  cleanup_logs
 
   write_summary
   exit "$overall_rc"

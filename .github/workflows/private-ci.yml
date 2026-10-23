@@ -31,6 +31,7 @@ permissions:
 
 jobs:
   # 在任何網路請求之前先驗證輸入；驗證失敗整條 workflow 直接停。
+  # status token 只存在於 resolve 與 report；執行 private 程式碼的 ci job 拿不到。
   resolve:
     name: Resolve run mode
     runs-on: ubuntu-latest
@@ -63,15 +64,8 @@ jobs:
 
           echo "mode=pr" >> "${GITHUB_OUTPUT}"
 
-  # status token 只存在於 mark-pending 與 report；執行 private 程式碼的 ci job 拿不到。
-  mark-pending:
-    name: Mark PR status pending
-    needs: resolve
-    if: ${{ needs.resolve.outputs.mode == 'pr' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
       - name: Write pending commit status
+        if: steps.mode.outputs.mode == 'pr'
         env:
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
           STATUS_TOKEN: ${{ secrets.PRIVATE_REPOS_STATUS_TOKEN }}
@@ -118,8 +112,8 @@ jobs:
 
   ci:
     name: CI — ${{ matrix.target }}${{ needs.resolve.outputs.mode == 'pr' && ' · PR' || '' }}
-    needs: [resolve, mark-pending]
-    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.mark-pending.result == 'success' || needs.mark-pending.result == 'skipped') }}
+    needs: resolve
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     outputs:
       ci_outcome: ${{ steps.publish.outputs.ci_outcome }}
       pass_count: ${{ steps.publish.outputs.pass_count }}

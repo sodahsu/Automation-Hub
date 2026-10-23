@@ -70,10 +70,10 @@ private repository           僅在 runtime 解析
 
 PR 模式（dispatch 帶 sha，僅 repo-01..05）：
 
-resolve ──> mark-pending ──> ci ──> report
-（驗證輸入） （STATUS_TOKEN）  （READ_TOKEN，  （STATUS_TOKEN）
-              寫 pending      跑 private     寫 success /
-                              程式碼）       failure / error
+resolve ──> ci ──> report
+（驗證輸入， （READ_TOKEN， （STATUS_TOKEN）
+ STATUS_TOKEN 跑 private    寫 success /
+ 寫 pending） 程式碼）      failure / error
 ~~~
 
 ## 必要的 GitHub Actions Secrets
@@ -101,7 +101,7 @@ PR 模式回寫 commit status 專用的第二支 fine-grained personal access to
 - Commit statuses：Read and write
 - Metadata：Read
 
-不授予 Contents、Pull requests 或其他 write 權限，因此無法改 code、branch 或 PR。這支 token 只出現在 `mark-pending` 與 `report` 兩個 job，執行 private 程式碼的 `ci` job 拿不到它。
+不授予 Contents、Pull requests 或其他 write 權限，因此無法改 code、branch 或 PR。這支 token 只出現在 `resolve` 與 `report` 兩個 job，執行 private 程式碼的 `ci` job 拿不到它。
 
 ### `PRIVATE_REPOS_JSON`
 
@@ -161,7 +161,7 @@ Detector 不會固定重跑六倉，而是：
 5. 若有更新的 push，才透過 Public Automation-Hub 自己的 `workflow_dispatch` 執行該 alias。
 6. 若該 alias 已有 CI 執行中，標記為 `WAIT`，下一輪再判斷，避免重複排隊。
 
-這個 detector 不保存 private commit SHA，也不持有 private repo write 權限（write 只在 PR 模式的 `mark-pending`／`report` job）。只有 Public Automation-Hub 的 detector job 具有 `actions: write`，用途僅限觸發既有 Public CI workflow。
+這個 detector 不保存 private commit SHA，也不持有 private repo write 權限（write 只在 PR 模式的 `resolve`／`report` job）。只有 Public Automation-Hub 的 detector job 具有 `actions: write`，用途僅限觸發既有 Public CI workflow。
 
 因為採用 repository-level `pushed_at`，其他 branch 的 push 可能造成一次額外 default-branch CI；這是刻意採用的保守策略。
 
@@ -235,6 +235,8 @@ Regression matrix：
 - target 原有 `check:ci`
 
 Adapter 只建立沒有 remote、沒有 credential 的本機暫時 Git baseline；cleanup 時整個 workspace 都會移除。
+
+`local-git-baseline` 與 `shellcheck-tool` 仍依序執行並在失敗時立即停止；後續檢查最多分四條 lane 平行執行（ShellCheck 各最多四個檔案同時檢查），任一 stage 失敗後其餘 lane 與後續 stage 仍會跑完，summary 維持原 stage 順序，並以原順序第一個失敗 stage 的 exit code 結束。
 
 ### `repo-05` contract adapter
 
