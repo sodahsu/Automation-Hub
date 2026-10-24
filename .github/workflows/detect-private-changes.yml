@@ -180,6 +180,9 @@ jobs:
               if [[ "${conclusion}" == "success" ]]; then
                 echo "| ${alias} | SKIP — successful CI covers latest push |" >> "${GITHUB_STEP_SUMMARY}"
                 continue
+              elif [[ "${conclusion}" == "failure" || "${conclusion}" == "timed_out" ]]; then
+                echo "| ${alias} | FAIL — latest push CI failed; not covered |" >> "${GITHUB_STEP_SUMMARY}"
+                continue
               fi
             fi
 
