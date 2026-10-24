@@ -20,7 +20,7 @@ stage_results=""
 # 這些 stage 只負責備料或偵測環境：PASS 只代表前置條件成立，
 # 不代表目標程式碼的任何檢查被執行過。
 setup_stages=" package-json package-lock package-manager install local-git-baseline shellcheck-tool python-deps "
-unverified_note="UNVERIFIED：沒有任何 adapter／檢查 stage 執行；這次綠燈只代表沒有東西失敗，不代表通過。"
+unverified_note="UNVERIFIED：沒有任何 adapter／檢查 stage 執行；本次 CI 視為失敗，不代表通過。"
 
 add_row() {
   local stage="$1"
@@ -49,9 +49,9 @@ count_verifying_rows() {
 
 write_summary() {
   local unverified=0
-  # 失敗的 run 本來就是紅燈；只有「綠燈卻沒驗證任何東西」需要額外標示。
   if (( overall_rc == 0 )) && [[ "$(count_verifying_rows)" == "0" ]]; then
     unverified=1
+    overall_rc=1
   fi
 
   {
@@ -67,7 +67,6 @@ write_summary() {
   } > "$summary_file"
 
   if (( unverified )); then
-    # 刻意不改 exit code：改成紅燈會破壞 detector 以 job 結論判斷的語意。
     # 這行寫進 log 與 annotation；真正的 job summary 由 workflow 的 publish step
     # 讀 $summary_file 後發布（$GITHUB_STEP_SUMMARY 在此 step 已被隔離到暫存檔）。
     echo "::warning title=Private CI unverified::${unverified_note}"
@@ -221,7 +220,7 @@ fi
 if [[ ! -f package.json ]]; then
   add_row "adapter" "SKIP (no supported project adapter)"
   write_summary
-  exit 0
+  exit "$overall_rc"
 fi
 
 run_stage "package-json" node -e 'JSON.parse(require("fs").readFileSync("package.json", "utf8"))' || {
@@ -241,7 +240,7 @@ elif [[ -f bun.lock || -f bun.lockb ]]; then
 else
   add_row "package-manager" "SKIP (no supported lockfile)"
   write_summary
-  exit 0
+  exit "$overall_rc"
 fi
 
 add_row "package-manager" "PASS (${pm})"
@@ -266,7 +265,7 @@ case "$pm" in
   bun)
     add_row "adapter" "SKIP (Bun adapter requires separate review)"
     write_summary
-    exit 0
+    exit "$overall_rc"
     ;;
 esac
 

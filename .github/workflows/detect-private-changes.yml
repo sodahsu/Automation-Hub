@@ -84,6 +84,7 @@ jobs:
           fi
 
           declare -A latest_status
+          declare -A latest_conclusion
           declare -A latest_started
 
           while IFS= read -r run_id; do
@@ -98,10 +99,11 @@ jobs:
               exit 1
             fi
 
-            while IFS=$'\t' read -r alias status started_at; do
+            while IFS=$'\t' read -r alias status conclusion started_at; do
               [[ -n "${alias}" ]] || continue
               if [[ -z "${latest_status[${alias}]:-}" ]]; then
                 latest_status["${alias}"]="${status}"
+                latest_conclusion["${alias}"]="${conclusion}"
                 latest_started["${alias}"]="${started_at}"
               fi
             done < <(
@@ -111,6 +113,7 @@ jobs:
                 | [
                     (.name | sub("^CI — "; "")),
                     .status,
+                    (.conclusion // ""),
                     (.started_at // "")
                   ]
                 | @tsv
@@ -165,20 +168,22 @@ jobs:
             fi
 
             status="${latest_status[${alias}]:-none}"
+            conclusion="${latest_conclusion[${alias}]:-}"
             started_at="${latest_started[${alias}]:-}"
 
             if [[ "${status}" != "none" && "${status}" != "completed" ]]; then
-              if [[ -n "${started_at}" && ( "${started_at}" > "${pushed_at}" || "${started_at}" == "${pushed_at}" ) ]]; then
-                echo "| ${alias} | SKIP — current CI already covers latest push |" >> "${GITHUB_STEP_SUMMARY}"
-              else
-                echo "| ${alias} | WAIT — CI in progress; recheck next poll |" >> "${GITHUB_STEP_SUMMARY}"
-              fi
+              echo "| ${alias} | WAIT — CI in progress; recheck next poll |" >> "${GITHUB_STEP_SUMMARY}"
               continue
             fi
 
             if [[ -n "${started_at}" && ( "${started_at}" > "${pushed_at}" || "${started_at}" == "${pushed_at}" ) ]]; then
-              echo "| ${alias} | SKIP — no new push |" >> "${GITHUB_STEP_SUMMARY}"
-              continue
+              if [[ "${conclusion}" == "success" ]]; then
+                echo "| ${alias} | SKIP — successful CI covers latest push |" >> "${GITHUB_STEP_SUMMARY}"
+                continue
+              elif [[ "${conclusion}" == "failure" || "${conclusion}" == "timed_out" ]]; then
+                echo "| ${alias} | FAIL — latest push CI failed; not covered |" >> "${GITHUB_STEP_SUMMARY}"
+                continue
+              fi
             fi
 
             payload="$(jq -cn --arg ref "main" --arg target "${alias}" '{ref:$ref,inputs:{target:$target}}')"
