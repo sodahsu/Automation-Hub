@@ -2,24 +2,27 @@
 
 ## 判定規則
 
-Detector 先沿用既有條件，確認最近一次 CI 已完成，且 `started_at` 不早於最新 `pushed_at`，再依 `conclusion` 決定是否覆蓋或重派：
+Detector 對每個 alias 取最近一次 bridge job 的 `status`、`conclusion`、`started_at`：
 
-- `success`：輸出 `SKIP — successful CI covers latest push`，停止處理該 alias。
-- `failure` 或 `timed_out`：輸出 `FAIL — latest push CI failed; not covered`，停止處理該 alias；下一次 push 才重新 dispatch。
-- 其他結論（包含 `cancelled`、`skipped`、`startup_failure`、空值）：沿用既有行為，繼續 dispatch。
-- 尚未完成的 job：沿用既有 `WAIT` 行為，於下一輪重新判斷。
+| 狀態 | 條件 | 輸出 | 是否 dispatch |
+|---|---|---|---|
+| 進行中 | `status != completed` | `WAIT — CI in progress; recheck next poll` | 否，下一輪再判斷 |
+| 已完成，覆蓋最新 push | `started_at >= pushed_at` 且 `conclusion == success` | `SKIP — successful CI covers latest push` | 否 |
+| 已完成，最新 push 失敗 | `started_at >= pushed_at` 且 `conclusion` 為 `failure`／`timed_out` | `FAIL — latest push CI failed; not covered` | 否，等下一次 push |
+| 其他 | 結論為 `cancelled`、`skipped`、`startup_failure`、空值，或 job 早於最新 push | — | 是 |
 
-`scripts/common/run-ci.sh` 在沒有任何驗證 stage 時會 exit 1。因此成功結論已足以表示至少有一個驗證 stage 執行，不需要另外保存 verification counts。`ref: main` 指向公開 Automation-Hub workflow 版本，不代表私有 target branch。
+失敗不重派的理由：同一個 push 的 CI 失敗通常可重現，每五分鐘重派只會累積相同結果的 run。偶發失敗需要重跑時，由人工 `workflow_dispatch` 處理。
 
-## 風險與回復
+## Adapter 結果
 
-adapter 若因沒有支援的 adapter 而 exit 1，該 target 的 PR status 會是 failure。目前六個公開 alias 都有 adapter：其中兩個使用專用分支 adapter，其餘有 `package.json`；因此目前設定不受影響。文件與公開證據不得記錄 alias 對應的私有 repository 名稱。
+`scripts/common/run-ci.sh` 在沒有任何驗證 stage（扣除 `package-json`、`install` 等備料 stage）時把 `overall_rc` 設為 1，並保留 `UNVERIFIED` 摘要與 annotation。這讓 detector 只看 `conclusion` 就能分辨「真的通過」與「沒驗到東西」。
 
-回復方式：還原 `.github/workflows/detect-private-changes.yml` 中新增的 `failure`／`timed_out` 分支，即恢復先前的輪詢行為。本 change 不修改 adapter 或私有端設定。
+## 風險
 
-## 測試計畫
+- 沒有支援 adapter 的 target，PR commit status 會從 `success` 變成 `failure`。目前六個 alias 都有 adapter（兩個走專用分支，其餘有 `package.json`），現況不受影響；新增 target 時要先補 adapter。
+- `started_at` 與 `pushed_at` 的比較是時間上的間接證據，不是私有 SHA 的精確比對；私有 SHA 不寫進公開 log。
+- 公開文件與證據不得記錄 alias 對應的私有 repository 名稱。
 
-- 執行 `bash scripts/common/test-run-ci-portable.sh`、`python3 scripts/security/audit.py`、YAML parse、`git diff --check` 與 OpenSpec strict validation（若工具可用）。
-- detector 判斷邏輯內嵌在 workflow，本機無法單元測試，GitHub 實跑 `UNVERIFIED`；不得為此新建測試框架。
-- `actionlint` 未安裝時標示 `UNVERIFIED`，不以未執行宣稱通過。
-- 用已存在且經清理的 Actions 摘要檢視現況；不觸發 workflow。修改後的 GitHub 實跑需由後續獲准的流程驗證。
+## 回滾
+
+revert 本 change 的實作 commit（detector 與 adapter 一起還原）。只還原 adapter 而保留 detector 時，沒有驗證 stage 的 run 會再度被當成成功覆蓋，因此兩者不可分開回滾。
