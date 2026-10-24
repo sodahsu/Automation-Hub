@@ -34,4 +34,13 @@ for scenario in present missing; do
   fi
 done
 
+unsupported_workspace="$tmp/unsupported"
+mkdir -p "$unsupported_workspace"
+summary="$tmp/unsupported-summary.md"
+rc=0
+bash "$runner" "$unsupported_workspace" "$summary" repo-01 >/dev/null 2>&1 || rc=$?
+[[ "$rc" != 0 ]] || { echo "unsupported adapter unexpectedly passed" >&2; exit 1; }
+grep -Eq '\| adapter \| SKIP \(no supported project adapter\) \|' "$summary"
+grep -q 'UNVERIFIED' "$summary"
+
 echo "run-ci portable adapter tests passed"
