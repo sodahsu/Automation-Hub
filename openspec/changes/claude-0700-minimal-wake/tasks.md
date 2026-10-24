@@ -93,11 +93,11 @@
 - [x] 10.6 文件：`docs/external-scheduler.md` 新增「07:00 Claude wake job」（endpoint、專用 token、cron-job.org 設定、驗收、常見失敗、輪替）；`README.md` 具名例外段落同步（觸發來源、`actions: read`、外部排程 token 的殘留風險）。
 - [x] 10.7 spec delta 更新（`specs/claude-minimal-wake/spec.md`）：觸發來源、冪等規則、外部排程 credential、`actions: read` 權限。維持 `ADDED`：canonical 目前沒有 `claude-minimal-wake`，沒有既有 requirement 可 `MODIFIED`，歸檔時整個 capability 一次新增。
 - [x] 10.8 驗證：`python3 scripts/security/audit.py` exit 0；`openspec validate --all --strict` exit 0；5 個 workflow 皆通過 `yaml.safe_load`；`shellcheck scripts/wake/*.sh` exit 0。
-- [ ] 10.9 PR 合併至 `main`。 — 合併指示由使用者在對話中針對該 PR 另行給。
+- [x] 10.9 PR 合併至 `main`。 — PR #26 已於 2026-10-23T04:33:20Z 合併（merge commit `9edcad7b`）。
 - [ ] 10.10 【移交使用者】建立專用 dispatch token，並在 cron-job.org 建立 07:00 job（URL、method、headers、body 見 U2）。
 - [ ] 10.11 【移交使用者】首次 test run 與設定確認（U2）。
 - [ ] 10.12 【移交使用者】連續 3 天 07:00 ± 5 分鐘觸發的準時性驗收（U3）；通過後把證據寫入 `evidence/`。
-- [ ] 10.13 合併後第一個 `schedule` run 的防呆實測：step summary 應為 `SKIP`（外部排程當天已喚醒）或 `WAKE`（當天外部排程缺席），且 `SKIP` 時 Claude step 為 `skipped`。任何人唯讀觀察即可（`gh run list` 與 `gh api .../jobs`），不需要使用者本人。
+- [x] 10.13 合併後第一個 `schedule` run 的防呆實測：step summary 應為 `SKIP`（外部排程當天已喚醒）或 `WAKE`（當天外部排程缺席），且 `SKIP` 時 Claude step 為 `skipped`。任何人唯讀觀察即可（`gh run list` 與 `gh api .../jobs`），不需要使用者本人。 — 唯讀觀察 2026-10-24：合併後第一個 `schedule` run 是 [40048770740](https://github.com/sodahsu/Automation-Hub/actions/runs/40048770740)（2026-10-24T01:13:03Z、head `3453f32f`）；`Idempotency guard` step 成功、Claude step 為 `success`（未 skipped），屬 `WAKE` 路徑，與「外部排程當天缺席」一致（10.10–10.12 尚未做）。`SKIP` 路徑待外部排程上線後才有機會觀察。
 
 ## 使用者驗收清單（【移交使用者】項目的具體步驟）
 
