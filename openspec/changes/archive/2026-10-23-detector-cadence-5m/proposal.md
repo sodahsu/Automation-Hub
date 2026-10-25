@@ -24,7 +24,7 @@ Detector 的 cadence 現在有三份互相不一致的 truth：契約（spec／�
 ## What Changes
 
 - **spec**：`private-change-detection` 的 cadence requirement 由「每 15 分鐘（minutes `0,15,30,45`）」改為「每 5 分鐘（minutes `0,5,10,…,55`）」；cadence migration 驗收改為「至少 6 個連續做了完整掃描（非 SKIP）的 detector runs、相鄰間隔約 5 分鐘」；「runtime 仍是舊 cadence 時保持 pending」改為對應 15 分鐘的版本。新增一個 scenario，明定節流與 cadence 對齊、`force=true` 繞過節流。
-- **detector**：`.github/workflows/detect-private-changes.yml` 的節流由 `% 15` 改為 `% 5`；第 1 行、`force` input description、節流註解與 SKIP 訊息同步改成 5 分鐘。`force=true` 的繞過語意保留（Ai-agent 的 hub-ci-kick hook 依賴它）。不改其他邏輯、權限或 concurrency。
+- **detector**：`.github/workflows/detect-private-changes.yml` 的節流由 `% 15` 改為 `% 5`；第 1 行、`force` input description、節流註解與 SKIP 訊息同步改成 5 分鐘。`force=true` 的繞過語意保留（目標私有 repo 的 hub-ci-kick hook 依賴它）。不改其他邏輯、權限或 concurrency。
 - **文件**：`README.md`、`docs/external-scheduler.md` 的現行契約改為 5 分鐘；2026-10-04 的歷史證據敘述保留原文，補一句「2026-10-23 起改為 5 分鐘」。
 - **取代舊 change**：`align-external-scheduler-to-15m` 方向相反，以 `openspec archive align-external-scheduler-to-15m --yes --skip-specs` 歸檔（必須 `--skip-specs`，避免把 15 分鐘 delta 套回 canonical）；`openspec/changes/README.md` 移除舊列、加入本 change。
 - **進度**：`TASK_PROGRESS.md` 把「detector 輪詢 15 分鐘 → 5 分鐘」改為進行中，並新增一項只記錄、不實作的待辦（vault-health `pull_request` trigger 改由 Hub 承接）。
@@ -33,8 +33,8 @@ Detector 的 cadence 現在有三份互相不一致的 truth：契約（spec／�
 
 - 不修改 cron-job.org（已是 5 分鐘）、不改專用 token 權限、不改任何 Secret。
 - 不改 detector 演算法、`pushed_at` 比較、alias dispatch、PR 模式、permissions、concurrency。
-- 不實作「ObsidianBook `vault-health.yml` 的 pull_request trigger 改由 Hub 承接」，只在 `TASK_PROGRESS.md` 記錄。
-- 不修改 Ai-agent。其 `openspec/specs/hook-wiring-integrity/spec.md` 提到「繞過偵測器對一般 workflow_dispatch 的 15 分鐘節流」與「UTC 分鐘不是 00、15、30、45」的 scenario，改成 5 分鐘後字面會過時，需要另一個 Ai-agent PR。
+- 不實作「目標私有 repo `vault-health.yml` 的 pull_request trigger 改由 Hub 承接」，只在 `TASK_PROGRESS.md` 記錄。
+- 不修改目標私有 repo。其 `openspec/specs/hook-wiring-integrity/spec.md` 提到「繞過偵測器對一般 workflow_dispatch 的 15 分鐘節流」與「UTC 分鐘不是 00、15、30、45」的 scenario，改成 5 分鐘後字面會過時，需要另一個目標私有 repo PR。
 
 ## Impact
 
@@ -42,5 +42,5 @@ Detector 的 cadence 現在有三份互相不一致的 truth：契約（spec／�
 - `openspec/specs/private-change-detection/spec.md`：本 change 歸檔時才套用 delta；在此之前 canonical spec 仍寫 15 分鐘。
 - `README.md`、`docs/external-scheduler.md`、`TASK_PROGRESS.md`、`openspec/changes/README.md`：文字更新。
 - `openspec/changes/align-external-scheduler-to-15m/`：歸檔為 `openspec/changes/archive/2026-10-23-align-external-scheduler-to-15m/`（superseded）。
-- 跨 repo：Ai-agent 的 `hook-wiring-integrity` spec 字面過時（見上），另案處理。
+- 跨 repo：目標私有 repo 的 `hook-wiring-integrity` spec 字面過時（見上），另案處理。
 - 風險與回滾：風險是 private API 與 Actions 用量增加三倍，量級見上方成本評估；回滾是把節流改回 `% 15` 並還原文件，cron-job.org 不需動。

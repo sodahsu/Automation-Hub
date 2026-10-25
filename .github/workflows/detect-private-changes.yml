@@ -44,7 +44,7 @@ jobs:
           # 外部 scheduler 的正式契約是每 5 分鐘。
           # workflow_dispatch 若未明確 force，只在 UTC 分鐘為 5 的倍數時做完整掃描；
           # 其餘喚醒（例如手動或 scheduler 偏移造成的非格點喚醒）立即結束，不讀 private API、不 dispatch CI。
-          # force=true 繞過此節流，Ai-agent 的 hub-ci-kick hook 依賴這個語意。
+          # force=true 繞過此節流，目標私有 repo 的 hub-ci-kick hook 依賴這個語意。
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${FORCE_DETECT:-false}" != "true" ]]; then
             minute="$(date -u +%M)"
             if (( 10#${minute} % 5 != 0 )); then
