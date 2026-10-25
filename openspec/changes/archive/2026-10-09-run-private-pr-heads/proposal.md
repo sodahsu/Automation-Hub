@@ -39,8 +39,8 @@ source: ai-assisted
 ## Non-goals
 
 - 不讓 PR 的 check 成為強制合併條件。private repo 的 branch protection／ruleset 是否能要求這個 status，取決於 GitHub 方案（Unknown，見 design）。
-- 不提高 repo-04（Ai-agent）的 CI 覆蓋度。`architecture/workflows.json` 標示它是 `partial`，PR 模式跑的就是這份 partial 範圍。
-- 不處理 repo-06（ObsidianBook）。
+- 不提高 repo-04 的 CI 覆蓋度。`architecture/workflows.json` 標示它是 `partial`，PR 模式跑的就是這份 partial 範圍。
+- 不處理 repo-06。
 
 ## Capabilities
 

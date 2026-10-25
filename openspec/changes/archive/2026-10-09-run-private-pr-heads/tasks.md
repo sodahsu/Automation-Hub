@@ -27,7 +27,7 @@
 
 - [x] 5.1 `actionlint`（若有）與 YAML parse
 - [x] 5.2 `openspec validate run-private-pr-heads --strict`
-- [ ] 5.3 （secret 就緒後手動）手動：對 Ai-agent 一個 Ready PR dispatch `target=repo-04 sha=<head>`，確認 PR 上依序出現 `pending` → `success`／`failure`。2026-10-04 已有更接近 production 的**自動 detector**證據：Ai-agent #534～#537 都成功走 `Mark PR status pending` → `CI — repo-04 · PR` → `Report PR status`，但「人類手動 dispatch」這個特定入口尚未單獨驗證。
+- [ ] 5.3 （secret 就緒後手動）手動：對 repo-04 一個 Ready PR dispatch `target=repo-04 sha=<head>`，確認 PR 上依序出現 `pending` → `success`／`failure`。2026-10-04 已有更接近 production 的**自動 detector**證據：repo-04 #534～#537 都成功走 `Mark PR status pending` → `CI — repo-04 · PR` → `Report PR status`，但「人類手動 dispatch」這個特定入口尚未單獨驗證。
   - 歸檔時延後：需使用者手動 dispatch `target=repo-04 sha=<head>` 一次，觀察 PR 上 `pending` → `success／failure`；自動 detector 路徑已有 runtime 證據，人工入口尚未單獨驗證（2026-10-09）。
 - [x] 5.4 不帶 `sha` 的 default-branch 行為不變。2026-10-03 Public runs `37137402812`、`37135302261` 皆為 `CI — repo-04` success，PR status jobs skipped；另有 `repo-01` default-branch success。這是 runtime 等價證據，不需另製造測試 run。
 - [ ] 5.5 等一輪 detector，確認新的 Ready PR 會自動 dispatch、Draft 不會、已有 status 的不重跑。2026-10-04 已證明前半：Ai-agent #534～#537 的 PR-head run 皆由 `github-actions[bot]` 觸發且 status success；**Draft skip 與已有 status 不重跑仍缺直接 runtime evidence**。
