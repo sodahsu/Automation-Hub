@@ -6,9 +6,9 @@
 
 ## Ready PR head 已由 Automation-Hub 驗證並回寫 status
 
-Ai-agent 最近四個已合併 PR 的 head commit 均可讀到同一個 commit status context：
+目標私有 repo 最近四個已合併 PR 的 head commit 均可讀到同一個 commit status context：
 
-| Ai-agent PR | Head SHA | Commit status | Automation-Hub run |
+| 目標私有 repo PR | Head SHA | Commit status | Automation-Hub run |
 |---|---|---|---|
 | #534 | `ac4734c1219b1f504aa65bc7480d9a83b3811709` | `automation-hub/private-ci = success` | `37134554565` |
 | #535 | `b28e0d5729374f7eb3165edf3849c37d79514e30` | `automation-hub/private-ci = success` | `37135490127` |

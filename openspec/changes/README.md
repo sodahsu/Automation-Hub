@@ -25,11 +25,11 @@
 
 2026-10-09（使用者於對話中批准，例外於 `openspec/project.md`「runtime observation 未完成須留 active」）：
 
-- `run-private-pr-heads`：以 `--skip-specs` 歸檔（delta 內容已在 canonical `private-change-detection`）。Hub 程式／runtime 與 Ai-agent contract 都已成立；PAT 最小 scope（1.1、1.2）、手動 dispatch（5.3）、Draft skip 與已有 status 不重跑（5.5）四項**沒有勾、歸檔時延後**，清單與原因見 `archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
+- `run-private-pr-heads`：以 `--skip-specs` 歸檔（delta 內容已在 canonical `private-change-detection`）。Hub 程式／runtime 與目標私有 repo contract 都已成立；PAT 最小 scope（1.1、1.2）、手動 dispatch（5.3）、Draft skip 與已有 status 不重跑（5.5）四項**沒有勾、歸檔時延後**，清單與原因見 `archive/2026-10-09-run-private-pr-heads/DEFERRED.md`。
 
 2026-10-23：
 
-- `detector-cadence-5m`：2026-10-23 PR #26 合併後，以 14 個連續完整掃描、間隔 4:45–5:06 的 live run 完成驗收；不加 `--skip-specs` 歸檔至 `archive/2026-10-23-detector-cadence-5m/`，5 分鐘 delta 已套用至 canonical `private-change-detection`。Ai-agent PR #655 已將 `hook-wiring-integrity` 改為 5 分鐘。
+- `detector-cadence-5m`：2026-10-23 PR #26 合併後，以 14 個連續完整掃描、間隔 4:45–5:06 的 live run 完成驗收；不加 `--skip-specs` 歸檔至 `archive/2026-10-23-detector-cadence-5m/`，5 分鐘 delta 已套用至 canonical `private-change-detection`。目標私有 repo PR #655 已將 `hook-wiring-integrity` 改為 5 分鐘。
 - `claude-window-trigger`：以 `--skip-specs` 歸檔為 `archive/2026-10-23-claude-window-trigger/`，標記 **dropped**。2026-10-23 使用者授權主代理裁決：該 change 實作的 workflow 從未 live（`CLAUDE_WINDOW_TRIGGER_ENABLED` 沒設、`CLAUDE_CODE_OAUTH_TOKEN` 不存在；2026-09-30 至 2026-10-23 的 74 筆 schedule run 全部 success，最新一筆的 log 為 `Dry-run only; Claude was not called.`），用途與 `claude-0700-minimal-wake` 重疊；`claude-window-trigger.yml`、`docs/claude-window-trigger.md` 與 README 對應段落同步刪除，5 個未勾項目（第 4 節）均標 dropped。
 - `align-external-scheduler-to-15m`：以 `--skip-specs` 歸檔為 `archive/2026-10-23-align-external-scheduler-to-15m/`，標記 **superseded by `detector-cadence-5m`**。cadence 方向改為 5 分鐘，其 15 分鐘 delta 不得套回 canonical spec；三個未勾項目（scheduler 設定頁、generic repository checks、independent review）因此不再執行。
 

@@ -10,7 +10,7 @@
 
 - [x] `.github/workflows/detect-private-changes.yml`：節流 `% 15` 改為 `% 5`。
 - [x] 同步第 1 行、`force` input description、節流註解與 SKIP 訊息為 5 分鐘。
-- [x] 保留 `force=true` 繞過語意（Ai-agent 的 hub-ci-kick hook 依賴它）；不改其他邏輯、權限或 concurrency。
+- [x] 保留 `force=true` 繞過語意（目標私有 repo 的 hub-ci-kick hook 依賴它）；不改其他邏輯、權限或 concurrency。
 - [x] 抽出節流 bash 片段做本機測試：分鐘 00、05、55 為 FULL，01、07、14 為 SKIP，`force=true` 為 FULL。
 - [x] `python3 scripts/security/audit.py` 通過；workflow YAML 可被 `yaml.safe_load` 解析。
 
@@ -38,4 +38,4 @@
 
 ## 6. 後續（本 change 不做）
 
-- [x] Ai-agent PR #655 已完成：`hook-wiring-integrity` 改為 5 分鐘。
+- [x] 目標私有 repo PR #655 已完成：`hook-wiring-integrity` 改為 5 分鐘。

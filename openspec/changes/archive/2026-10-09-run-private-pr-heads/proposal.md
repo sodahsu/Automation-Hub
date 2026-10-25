@@ -14,7 +14,7 @@ source: ai-assisted
 
 ## Why
 
-2026-09-29，private 來源 repo（例如 Ai-agent）的 GitHub Actions 因帳號付款問題無法啟動，PR #484～#486 的 CI 全部「job was not started」，只能靠本機驗證就合併。Automation-Hub 是 Public repo，Actions 不受這個計費限制影響，但現行設計只驗證 default branch（`Private CI MUST 只驗證 default branch`），所以只能在合併後做事後驗證，擋不住壞的 PR，結果也不會出現在 PR 的 checks 上。
+2026-09-29，目標私有 repo 的 GitHub Actions 因帳號付款問題無法啟動，PR #484～#486 的 CI 全部「job was not started」，只能靠本機驗證就合併。Automation-Hub 是 Public repo，Actions 不受這個計費限制影響，但現行設計只驗證 default branch（`Private CI MUST 只驗證 default branch`），所以只能在合併後做事後驗證，擋不住壞的 PR，結果也不會出現在 PR 的 checks 上。
 
 讓 Automation-Hub 驗證 PR head，並把結果回寫成 PR 上的 commit status，private repo 自己的 Actions 停擺時，PR 仍然有合併前的 CI 證據。
 
@@ -39,8 +39,8 @@ source: ai-assisted
 ## Non-goals
 
 - 不讓 PR 的 check 成為強制合併條件。private repo 的 branch protection／ruleset 是否能要求這個 status，取決於 GitHub 方案（Unknown，見 design）。
-- 不提高 repo-04（Ai-agent）的 CI 覆蓋度。`architecture/workflows.json` 標示它是 `partial`，PR 模式跑的就是這份 partial 範圍。
-- 不處理 repo-06（ObsidianBook）。
+- 不提高 repo-04 的 CI 覆蓋度。`architecture/workflows.json` 標示它是 `partial`，PR 模式跑的就是這份 partial 範圍。
+- 不處理 repo-06。
 
 ## Capabilities
 

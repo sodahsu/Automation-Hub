@@ -7,7 +7,7 @@
 ## 已成立的事實
 
 - `private-ci.yml` PR 模式、`detect-private-changes.yml` Ready PR 偵測與文件（tasks 2.x、3.x、4.x）皆已完成。
-- Ai-agent 端 machine-readable `remoteEvidence.automationHub` contract 已成立（tasks 4.2）；同 SHA 的 validation PR 由 Hub run `37190764398` 驗證 success。
+- 目標私有 repo 端 machine-readable `remoteEvidence.automationHub` contract 已成立（tasks 4.2）；同 SHA 的 validation PR 由 Hub run `37190764398` 驗證 success。
 - 2026-10-04 的 PR-head CI runtime 證據見 `evidence/runtime-pr-head-ci-2026-10-04.md`（pending → CI → final status 全程成功、default-branch mode 未被破壞）。
 
 ## 歸檔時延後的項目
