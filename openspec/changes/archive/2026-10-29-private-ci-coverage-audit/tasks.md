@@ -7,7 +7,7 @@
 - [x] 進行中的 job 一律 `WAIT`。
 - [x] `run-ci.sh` 沒有驗證 stage 時 exit 1，摘要保留 `UNVERIFIED`。
 - [x] 確認 `ref: main` 選的是 Automation-Hub workflow 版本，不是缺陷。
-- [ ] 透過授權的私有檢視確認六個 alias 的對應與預設分支。`UNVERIFIED`：本次沒有私有 mapping 檢視，且對照不得寫進公開 repo。
+- [ ] 歸檔時保留 `UNVERIFIED`：未執行 alias 對照檢視；公開變更紀錄不記載私有映射或名稱。
 
 ## 測試計畫
 
@@ -17,8 +17,8 @@
 - [x] `python3 scripts/security/audit.py`：exit 0。
 - [x] `openspec validate private-ci-coverage-audit --strict`：exit 0。
 - [x] `git diff --check`：exit 0。
-- [ ] Detector 判斷邏輯內嵌在 workflow，本機沒有單元測試入口。`UNVERIFIED`：合併後以 detector run 的 step summary 確認 `SKIP`／`FAIL`／`WAIT` 分類。
-- [ ] `actionlint`：`UNVERIFIED`，本機未安裝（exit 127）。
+- [ ] Detector 分類沒有本機單元測試入口；合併後 run `40725755633` 確認 workflow 執行成功，未以該 run 宣稱所有分類分支均已驗證。
+- [ ] `actionlint`：`UNVERIFIED`，本機未安裝（exit 127）；未宣稱通過。
 
 ## 回滾
 
