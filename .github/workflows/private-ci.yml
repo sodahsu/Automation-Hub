@@ -330,11 +330,9 @@ jobs:
       - name: Upload sanitized stage evidence
         if: ${{ always() }}
         continue-on-error: true
-        env:
-          TARGET_ALIAS: ${{ matrix.target }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: hub-stage-evidence-${{ env.TARGET_ALIAS }}
+          name: hub-stage-evidence-${{ matrix.target }}
           path: ${{ runner.temp }}/stage-evidence/stage-evidence.json
           if-no-files-found: warn
           retention-days: 30
