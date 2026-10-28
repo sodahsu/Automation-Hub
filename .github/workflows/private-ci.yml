@@ -285,7 +285,7 @@ jobs:
           private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
           echo "::add-mask::${private_repo}"
           # 只把目標 slug 交給 run-ci.sh；整份 alias 對照表不留在執行 private code 的環境。
-          PRIVATE_REPOSITORY="${private_repo}" env -u PRIVATE_REPOS_JSON bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${TARGET_ALIAS}"
+          PRIVATE_REPOSITORY="${private_repo}" env -u PRIVATE_REPOS_JSON bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${TARGET_ALIAS}" "${RUNNER_TEMP}/stage-evidence/stage-evidence.json"
 
       - name: Publish sanitized summary
         id: publish
@@ -326,6 +326,18 @@ jobs:
           else
             echo "CI summary was not produced." >> "${GITHUB_STEP_SUMMARY}"
           fi
+
+      - name: Upload sanitized stage evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          TARGET_ALIAS: ${{ matrix.target }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hub-stage-evidence-${{ env.TARGET_ALIAS }}
+          path: ${{ runner.temp }}/stage-evidence/stage-evidence.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Cleanup private workspace
         if: ${{ always() }}

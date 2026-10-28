@@ -262,7 +262,7 @@ Public summary 只包含：
 - PASS / FAIL / SKIP
 - 失敗 stage 的 exit code
 
-禁止上傳 private source artifact。
+`private-ci.yml` 另會上傳 `hub-stage-evidence-<alias>` artifact，內容只有 `stage-evidence.json`：schema version、public-safe alias、stage 名稱與 `PASS`／`FAIL`／`ADVISORY`／`SKIP` 狀態。失敗原因、private source、命令輸出、環境資料與 repository mapping 都不會寫入此檔；artifact 保留 30 天。禁止上傳 private source artifact；這是唯一允許的去敏 stage evidence artifact。
 
 ## GitHub Actions command-file 隔離
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -16,10 +17,78 @@ def require(condition: bool, message: str) -> None:
 
 workflow_files = sorted(WORKFLOWS.glob("*.yml")) + sorted(WORKFLOWS.glob("*.yaml"))
 workflow_text = {p: p.read_text(encoding="utf-8") for p in workflow_files}
+workflow_data = {p.name: yaml.safe_load(text) or {} for p, text in workflow_text.items()}
+
+def artifact_upload_steps(workflow: dict) -> list[dict]:
+    steps = []
+    for job in (workflow.get("jobs") or {}).values():
+        steps.extend(
+            step for step in job.get("steps", [])
+            if isinstance(step, dict) and str(step.get("uses", "")).startswith("actions/upload-artifact@")
+        )
+    return steps
+
+def artifact_policy_issues(workflows: dict[str, dict]) -> list[str]:
+    issues = []
+    for name, workflow in workflows.items():
+        steps = artifact_upload_steps(workflow)
+        if name != "private-ci.yml" and steps:
+            issues.append(f"{name}: actions/upload-artifact 僅允許用於 private-ci.yml 的去敏 stage evidence")
+
+    private_steps = artifact_upload_steps(workflows.get("private-ci.yml", {}))
+    if len(private_steps) != 1:
+        issues.append("private-ci.yml: 必須恰有一個 stage evidence upload-artifact step")
+    elif private_steps:
+        artifact = private_steps[0]
+        fields = artifact.get("with") or {}
+        path = fields.get("path")
+        if path != "${{ runner.temp }}/stage-evidence/stage-evidence.json":
+            issues.append("private-ci.yml: artifact path 必須精確為 runner.temp 下的 stage-evidence.json")
+        if isinstance(path, str) and ("workspace" in path.lower() or any(char in path for char in "*?[]")):
+            issues.append("private-ci.yml: artifact path 不得包含 workspace 路徑或萬用字元")
+        name = fields.get("name")
+        if not isinstance(name, str) or not name.startswith("hub-stage-evidence-"):
+            issues.append("private-ci.yml: artifact name 必須以 hub-stage-evidence- 開頭")
+        retention = fields.get("retention-days")
+        if isinstance(retention, bool) or not isinstance(retention, int) or not 1 <= retention <= 30:
+            issues.append("private-ci.yml: artifact retention-days 必須是 1 至 30 的整數")
+    return issues
+
+def check_artifact_policy_self_test() -> None:
+    def workflow(*steps: dict) -> dict:
+        return {"jobs": {"ci": {"steps": list(steps)}}}
+
+    valid_step = {
+        "uses": "actions/upload-artifact@" + "a" * 40,
+        "with": {
+            "name": "hub-stage-evidence-repo-01",
+            "path": "${{ runner.temp }}/stage-evidence/stage-evidence.json",
+            "retention-days": 30,
+        },
+    }
+    valid = {"private-ci.yml": workflow(valid_step)}
+    if artifact_policy_issues(valid):
+        raise RuntimeError("security audit artifact policy self-check rejected its valid fixture")
+
+    other_workflow = {**valid, "detect-private-changes.yml": workflow(valid_step)}
+    if not any("detect-private-changes.yml" in issue for issue in artifact_policy_issues(other_workflow)):
+        raise RuntimeError("security audit artifact policy self-check accepted an upload in another workflow")
+
+    duplicate = {"private-ci.yml": workflow(valid_step, valid_step)}
+    if not any("恰有一個" in issue for issue in artifact_policy_issues(duplicate)):
+        raise RuntimeError("security audit artifact policy self-check accepted multiple upload steps")
+
+    wrong_path_step = {**valid_step, "with": {**valid_step["with"], "path": "workspace/**"}}
+    wrong_path = {"private-ci.yml": workflow(wrong_path_step)}
+    if not any("artifact path" in issue for issue in artifact_policy_issues(wrong_path)):
+        raise RuntimeError("security audit artifact policy self-check accepted an unsafe path")
+
+check_artifact_policy_self_test()
+for issue in artifact_policy_issues(workflow_data):
+    require(False, issue)
 
 for path, text in workflow_text.items():
     require("pull_request_target:" not in text, f"{path.name}: 禁止 pull_request_target")
-    require("actions/upload-artifact" not in text, f"{path.name}: 禁止 private-source Artifact upload")
     require("actions/cache" not in text, f"{path.name}: 禁止 source/workspace cache")
     require("persist-credentials: true" not in text, f"{path.name}: persist-credentials 不得為 true")
 
@@ -76,7 +145,7 @@ print("Security audit: PASS")
 print(f"- workflows checked: {len(workflow_files)}")
 print("- private CI permission boundary: PASS")
 print("- detector actions permission scope: PASS")
-print("- artifact/cache prohibitions: PASS")
+print("- sanitized stage artifact exception / cache prohibitions: PASS")
 print("- command-file isolation / cleanup: PASS")
 print("- common token-prefix scan: PASS")
 print("- third-party GitHub Actions immutable SHA pinning: PASS")

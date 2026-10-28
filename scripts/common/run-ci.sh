@@ -4,6 +4,7 @@ set -Eeuo pipefail
 workspace="${1:-workspace}"
 summary_file="${2:-${RUNNER_TEMP:-/tmp}/automation-hub-ci-summary.md}"
 target_alias="${3:-}"
+evidence_file="${4:-}"
 
 if [[ ! -d "$workspace" ]]; then
   echo "::error title=CI preflight failed::Private workspace was not created."
@@ -65,6 +66,36 @@ write_summary() {
       echo "> **${unverified_note}**"
     fi
   } > "$summary_file"
+
+  if [[ -n "$evidence_file" ]]; then
+    mkdir -p "$(dirname "$evidence_file")"
+    printf '%s\n' "${rows[@]}" | TARGET_ALIAS="$target_alias" python3 -c '
+import json
+import os
+import re
+import sys
+
+stages = []
+valid = True
+for row in sys.stdin.read().splitlines():
+    columns = row.split("|")
+    if len(columns) < 4:
+        continue
+    name = columns[1].strip()
+    words = columns[2].strip().split()
+    status = words[0] if words else ""
+    if not re.fullmatch(r"[A-Za-z0-9:_-]{1,64}", name) or status not in {"PASS", "FAIL", "ADVISORY", "SKIP"}:
+        valid = False
+        break
+    stages.append({"name": name, "status": status})
+
+target = os.environ["TARGET_ALIAS"]
+if not re.fullmatch(r"repo-[0-9]{2}", target):
+    raise SystemExit("evidence target alias is invalid")
+json.dump({"schemaVersion": 1, "target": target, "stages": stages if valid else []}, sys.stdout, ensure_ascii=False, separators=(",", ":"))
+sys.stdout.write("\n")
+' > "$evidence_file"
+  fi
 
   if (( unverified )); then
     # 這行寫進 log 與 annotation；真正的 job summary 由 workflow 的 publish step

@@ -10,7 +10,7 @@
 - 真實的儲存庫識別資訊只能存放在既有的 GitHub Actions 私密設定中，不得寫入公開檔案。
 - 私有儲存庫的讀取憑證只能存放在 GitHub Actions 私密設定中。
 - 私有儲存庫存取權限維持唯讀（read-only）。
-- 私有原始碼、筆記內容、環境設定檔、憑證、儲存庫對照資訊與 clone URL，不得提交到本公開儲存庫，也不得上傳為 Artifact。
+- 私有原始碼、筆記內容、環境設定檔、憑證、儲存庫對照資訊與 clone URL，不得提交到本公開儲存庫，也不得上傳為 Artifact。唯一例外是 `private-ci.yml` 上傳的去敏 stage evidence JSON；它只含 public-safe alias、stage 名稱與列舉狀態。
 - 不得在 GitHub Actions log 中輸出完整環境變數、原始碼內容、筆記本文、remote URL，或任何由私密設定衍生出的敏感值。
 - 在驗證身分或解析目標儲存庫的步驟中，不得使用 `set -x`。
 - 不得快取 `workspace/`、私有原始碼目錄、`.env` 檔、憑證，或任何包含私有原始碼內容的 bundle。
@@ -25,6 +25,8 @@
 - 修改儲存庫 visibility、billing 或 branch protection；
 - 搭配私有儲存庫憑證使用 `pull_request_target`；
 - 將私有儲存庫 checkout 內容上傳為 Artifact。
+
+唯一允許的 Artifact 是去敏 stage evidence：`private-ci.yml` 必須恰有一個 upload step，`with.path` 固定為 `${{ runner.temp }}/stage-evidence/stage-evidence.json`，`with.name` 以 `hub-stage-evidence-` 開頭，`retention-days` 為 30 或更短。不得上傳 workspace 路徑或萬用字元；`scripts/security/audit.py` 以 YAML 結構檢查此界線，其他 workflow 一律禁止 Artifact upload。
 
 ## 事件處理
 
