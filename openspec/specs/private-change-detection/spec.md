@@ -175,6 +175,32 @@ PR 模式 CI **MUST** 在開始時對 head SHA 寫入 `pending`，並在結束�
 - **THEN** migration status **MUST** 保持 pending
 - **AND** 系統 **MUST NOT** 宣稱 5 分鐘 cadence 已在 runtime 生效
 
+### Requirement: Private CI MUST publish sanitized stage evidence
+
+Private CI **MUST** serialize the existing stage rows into a versioned JSON evidence file and publish that file as a run-scoped artifact. This behavior follows the cross-repository stage evidence contract.
+
+#### Scenario: Stage evidence is published
+
+- **WHEN** a target CI run reaches its summary publication steps
+- **THEN** the CI script **MUST** write UTF-8 JSON from the same rows used by the Markdown summary
+- **AND** the JSON **MUST** contain only `schemaVersion`, `target`, and `stages` at the top level
+- **AND** each stage **MUST** contain only its name and enumerated status
+- **AND** the workflow **MUST** upload one `stage-evidence.json` file as `hub-stage-evidence-<alias>` with `if: always()`, `if-no-files-found: warn`, and 30-day retention
+- **AND** an upload failure **MUST NOT** change the CI job conclusion
+- **AND** the security audit **MUST** allow this sole sanitized artifact only in `private-ci.yml` and reject other workflows, additional artifact steps, or path changes
+
+#### Scenario: Failure details and invalid stage names
+
+- **WHEN** a stage status includes a parenthetical reason, or any stage name fails `^[A-Za-z0-9:_-]{1,64}$`
+- **THEN** the JSON **MUST NOT** contain the parenthetical reason
+- **AND** if a name is invalid, `stages` **MUST** be empty
+
+#### Scenario: Evidence output is disabled
+
+- **WHEN** the optional fourth `run-ci.sh` argument is empty
+- **THEN** the script **MUST NOT** write an evidence file
+- **AND** existing Markdown output and exit codes **MUST** remain unchanged
+
 #### Scenario: Runtime 仍以 15 分鐘喚醒
 
 - **WHEN** live detector runs 的喚醒本身仍約每 15 分鐘出現
