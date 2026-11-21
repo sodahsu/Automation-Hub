@@ -39,6 +39,11 @@ jobs:
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
     steps:
+      - name: Checkout trusted Hub mapping validator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Validate inputs and select mode
         id: mode
         env:
@@ -81,12 +86,10 @@ jobs:
             exit 1
           fi
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
-
-          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          private_repo="$(TARGET_ALIAS="${TARGET_ALIAS}" PRIVATE_REPOS_JSON="${PRIVATE_REPOS_JSON}" python3 scripts/common/resolve-target.py)" || {
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
-          fi
+          }
 
           echo "::add-mask::${private_repo}"
 
@@ -169,12 +172,10 @@ jobs:
           set -Eeuo pipefail
           umask 077
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
-
-          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          private_repo="$(TARGET_ALIAS="${TARGET_ALIAS}" PRIVATE_REPOS_JSON="${PRIVATE_REPOS_JSON}" python3 scripts/common/resolve-target.py)" || {
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
-          fi
+          }
 
           echo "::add-mask::${private_repo}"
 
@@ -395,12 +396,10 @@ jobs:
             description="${description}: PASS ${PASS_COUNT} / FAIL ${FAIL_COUNT} / SKIP ${SKIP_COUNT}"
           fi
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
-
-          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          private_repo="$(TARGET_ALIAS="${TARGET_ALIAS}" PRIVATE_REPOS_JSON="${PRIVATE_REPOS_JSON}" python3 scripts/common/resolve-target.py)" || {
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
-          fi
+          }
 
           echo "::add-mask::${private_repo}"
 

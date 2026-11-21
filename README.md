@@ -176,12 +176,12 @@ Detector 不會固定重跑六倉，而是：
 - 使用尚未 review 的 Bun adapter（`SKIP (Bun adapter requires separate review)`）。
 - 有 `package.json` 與 lockfile，但 `check:ci` 與 `lint`／`typecheck`／`test`／`build` 全都不存在，只完成 install。
 
-這種綠燈**一律視為「未驗證」，不得當成通過。** 為了避免被漏看，`scripts/common/run-ci.sh` 在這種情況會：
+這種情況由 `scripts/common/run-ci.sh` 以非零結果 fail closed，**不得當成通過**。為了避免被漏看，runner 會：
 
 - 在 job summary 結尾寫一行 `UNVERIFIED：沒有任何 adapter／檢查 stage 執行；…`；
 - 在 log 結尾輸出同一行（以 `::warning` annotation 呈現）。
 
-exit code 刻意不變：改成紅燈會破壞 detector 以 job 結論判斷的語意。因此 PR 模式的 commit status 在這種情況仍會寫 `success`，判讀依據是 Public run 的 job summary，以及 status description 裡的 PASS／FAIL／SKIP 計數。
+PR 模式會依 CI job 與 runner 結果寫入 `failure`；只有 CI 完成且成功才寫 `success`。判讀依據是 Public run 的 job summary，以及 status description 裡的 PASS／FAIL／SKIP 計數。
 
 判斷標準：summary 裡至少要有一個不屬於備料的 stage 顯示 `PASS`。備料 stage 包含 `package-json`、`package-lock`、`package-manager`、`install`、`local-git-baseline`、`shellcheck-tool`、`python-deps`；它們的 `PASS` 只代表前置條件成立。已知 target 的專屬 adapter（例如 `repo-03`）缺必要檔案時會 fail closed 成紅燈，不在此列。
 
