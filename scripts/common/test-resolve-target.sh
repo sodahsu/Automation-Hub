@@ -16,4 +16,24 @@ for pair in \
     echo "unexpected mapping acceptance: $target" >&2; exit 1
   fi
 done
+python3 - "$root/.github/workflows/private-ci.yml" <<'PY'
+import re
+import sys
+
+lines = open(sys.argv[1], encoding="utf-8").read().splitlines()
+job = None
+checkout_seen = False
+references = 0
+for index, line in enumerate(lines):
+    match = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", line)
+    if match:
+        job = match.group(1)
+        checkout_seen = False
+    if "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in line and "persist-credentials: false" in "\n".join(lines[index:index+5]):
+        checkout_seen = True
+    if "scripts/common/resolve-target.py" in line:
+        references += 1
+        assert checkout_seen, f"{job} references resolver before checking out trusted Hub code"
+assert references > 0, "workflow no longer references the target resolver"
+PY
 echo 'target eligibility tests passed'
