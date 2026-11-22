@@ -6,7 +6,7 @@
 
 ## 決策 2：只使用程式產生的公開合成資料
 
-測試集固定由 Notebook 在記憶體產生（>=100 篇），每個文件都含 `SYNTHETIC_PUBLIC_DEMO` 標記；不接受任何使用者輸入路徑、Drive mount、GitHub token、private checkout 或 ObsidianBook 原文。標記不能作為通用資料防洩漏保證，安全性來自**沒有讀取外部私有資料的輸入介面**。不得拿真實私有筆記複製貼入 Notebook。
+測試集固定由 Notebook 在記憶體產生（>=100 篇），每個文件都含 `SYNTHETIC_PUBLIC_DEMO` 標記；不接受任何使用者輸入路徑、Drive mount、GitHub token、private checkout 或 private knowledge vault 原文。標記不能作為通用資料防洩漏保證，安全性來自**沒有讀取外部私有資料的輸入介面**。不得拿真實私有筆記複製貼入 Notebook。
 
 ## 決策 3：公開模型與 CPU 優先
 
