@@ -5,6 +5,7 @@ workspace="${1:-workspace}"
 summary_file="${2:-${RUNNER_TEMP:-/tmp}/automation-hub-ci-summary.md}"
 target_alias="${3:-}"
 evidence_file="${4:-}"
+result_file="${5:-}"
 
 if [[ ! -d "$workspace" ]]; then
   echo "::error title=CI preflight failed::Private workspace was not created."
@@ -17,6 +18,7 @@ mkdir -p "$(dirname "$summary_file")"
 declare -a rows=()
 overall_rc=0
 stage_results=""
+result="PASSED"
 
 # 這些 stage 只負責備料或偵測環境：PASS 只代表前置條件成立，
 # 不代表目標程式碼的任何檢查被執行過。
@@ -53,6 +55,7 @@ write_summary() {
   if (( overall_rc == 0 )) && [[ "$(count_verifying_rows)" == "0" ]]; then
     unverified=1
     overall_rc=1
+    result="UNVERIFIED"
   fi
 
   {
@@ -97,6 +100,10 @@ sys.stdout.write("\n")
 ' > "$evidence_file"
   fi
 
+  if [[ -n "$result_file" ]]; then
+    printf '%s\n' "$result" > "$result_file"
+  fi
+
   if (( unverified )); then
     # 這行寫進 log 與 annotation；真正的 job summary 由 workflow 的 publish step
     # 讀 $summary_file 後發布（$GITHUB_STEP_SUMMARY 在此 step 已被隔離到暫存檔）。
@@ -127,6 +134,10 @@ run_stage() {
   else
     local rc=$?
     add_row "$stage" "FAIL (exit ${rc})"
+    result="FAILED"
+    if [[ "$setup_stages" == *" ${stage} "* ]] || (( rc >= 126 )); then
+      result="INFRASTRUCTURE_ERROR"
+    fi
     echo "::error title=Private CI stage failed::${stage} failed with exit code ${rc}. Private command output was intentionally withheld from this public log."
     rm -f "$log_file"
     overall_rc=$rc
@@ -143,7 +154,7 @@ run_advisory() {
   local log_file="${RUNNER_TEMP:-/tmp}/automation-hub-${safe_stage}.log"
 
   if "$@" >"$log_file" 2>&1; then
-    add_row "$stage" "PASS"
+    add_row "$stage" "ADVISORY"
   else
     local rc=$?
     add_row "$stage" "ADVISORY (exit ${rc})"
@@ -192,6 +203,7 @@ if [[ "$target_alias" == "repo-06" ]]; then
       add_row "relation-health" "FAIL (contract)"
       rm -f "$relation_log"
       overall_rc=1
+      result="FAILED"
       write_summary
       exit "$overall_rc"
     fi
@@ -202,6 +214,7 @@ if [[ "$target_alias" == "repo-06" ]]; then
     add_row "relation-health" "FAIL (exit ${rc})"
     rm -f "$relation_log"
     overall_rc=$rc
+    result="INFRASTRUCTURE_ERROR"
     write_summary
     exit "$overall_rc"
   fi
@@ -219,6 +232,7 @@ if [[ "$target_alias" == "repo-03" ]]; then
   if [[ ! -f package.json ]]; then
     add_row "package-json" "FAIL (required file missing)"
     overall_rc=2
+    result="UNVERIFIED"
     write_summary
     exit "$overall_rc"
   fi
@@ -231,6 +245,7 @@ if [[ "$target_alias" == "repo-03" ]]; then
   if [[ ! -s package-lock.json ]]; then
     add_row "package-lock" "FAIL (required file missing or empty)"
     overall_rc=2
+    result="UNVERIFIED"
     write_summary
     exit "$overall_rc"
   fi
@@ -239,6 +254,7 @@ if [[ "$target_alias" == "repo-03" ]]; then
   if ! has_script "check:ci"; then
     add_row "check:ci" "FAIL (required script missing)"
     overall_rc=2
+    result="UNVERIFIED"
     write_summary
     exit "$overall_rc"
   fi
@@ -335,6 +351,12 @@ if [[ "$target_alias" == "repo-04" ]]; then
     12) add_row "$stage" "FAIL (target repository slug unavailable)"; overall_rc=1 ;;
     *) add_row "$stage" "FAIL (registry could not be read)"; overall_rc=1 ;;
   esac
+  if (( resolve_rc != 0 )); then
+    result="UNVERIFIED"
+    if (( resolve_rc == 12 )); then
+      result="INFRASTRUCTURE_ERROR"
+    fi
+  fi
   write_summary
   exit "$overall_rc"
 fi

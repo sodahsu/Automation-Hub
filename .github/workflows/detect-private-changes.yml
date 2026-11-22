@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: private-change-detector
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   detect:
@@ -235,7 +235,7 @@ jobs:
               continue
             fi
 
-            head_shas="$(jq -r '.[] | select(.draft == false) | .head.sha' "${pulls_file}")"
+            head_shas="$(jq -r '[.[] | select(.draft == false) | .head.sha] | unique[]' "${pulls_file}")"
             rm -f "${pulls_file}"
 
             pr_run=0
@@ -252,7 +252,7 @@ jobs:
               fi
 
               status_file="${RUNNER_TEMP}/commit-status-${alias}.json"
-              status_code="$(curl --silent --location                 --output "${status_file}"                 --write-out "%{http_code}"                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${private_repo}/commits/${head_sha}/status")"
+              status_code="$(curl --silent --location                 --output "${status_file}"                 --write-out "%{http_code}"                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${private_repo}/commits/${head_sha}/status?per_page=100")"
 
               if [[ "${status_code}" != "200" ]]; then
                 rm -f "${status_file}"
@@ -261,7 +261,17 @@ jobs:
                 continue
               fi
 
-              has_status="$(jq -r '[.statuses[]? | select(.context == "automation-hub/private-ci")] | length' "${status_file}")"
+              if ! has_status="$(jq -er --arg sha "${head_sha}" '
+                if .sha != $sha or (.statuses | type) != "array" then error("Invalid status response")
+                else ([.statuses[] | select(.context == "automation-hub/private-ci")] | length) as $count
+                  | if $count > 0 or .total_count == (.statuses | length) then $count
+                    else error("Incomplete status response") end
+                end' "${status_file}" 2>/dev/null)"; then
+                rm -f "${status_file}"
+                echo "::error title=Private PR check failed::${alias} returned incomplete or invalid status evidence."
+                alias_failed=1
+                continue
+              fi
               rm -f "${status_file}"
 
               if [[ "${has_status}" != "0" ]]; then

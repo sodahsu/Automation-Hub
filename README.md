@@ -139,7 +139,7 @@ PR 模式回寫 commit status 專用的第二支 fine-grained personal access to
 private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍可取得合併前的 CI 證據。
 
 - 手動：在 **Run workflow** 選 `repo-01`～`repo-05`，並在 `sha` 填 PR head 的 40 碼 commit SHA。`sha` 只接受 `^[0-9a-f]{40}$`，且不支援 `repo-06`；格式錯誤會在任何網路請求前失敗。不接受分支名稱。
-- 自動：detector 每輪列出 repo-01～05 的 open、非 Draft PR，head SHA 上還沒有 `automation-hub/private-ci` status 的就 dispatch 一次。Draft 不跑；已有任何狀態的 status 不重跑（要重跑就手動 dispatch）。
+- 自動：detector 每輪列出 repo-01～05 的 open、非 Draft PR，逐 alias 合併重複的 head SHA；已有 `automation-hub/private-ci` status 的不再 dispatch。若 GitHub 尚未顯示 pending，偵測器可能重送請求，但 bridge 將同 alias／SHA 的整個 workflow 序列化，只有取得 pending claim 的 attempt 能執行檢查並回寫。同一 SHA 要重跑，請對原始 run 選 **Re-run all jobs**，不要建立新 dispatch 或只重跑失敗 job。
 - 結果：`automation-hub/private-ci` commit status 依序為 `pending` → `success`／`failure`／`error`，`target_url` 指向 Public run，description 只含清理過的 PASS／FAIL／SKIP 計數。
 - job 名稱為 `CI — <alias> · PR`，不會被 detector 當成 default branch 的結果；concurrency group 帶入 sha，不會卡住 main 的健康檢查。
 - Detector 的 step summary 只寫每個 alias 的 `PR RUN n / PR SKIP m` 計數，不寫 PR 編號、標題、分支或作者。
@@ -169,21 +169,28 @@ Detector 不會固定重跑六倉，而是：
 
 ## SKIP 不等於已驗證
 
-`SKIP` 只代表該 stage 沒有執行，不代表通過。下列情況整輪都沒有任何 adapter 或檢查 stage 實際執行，job 仍會以 exit 0 結束，也就是綠燈：
+`SKIP` 只代表未執行，不代表通過。下列情況整輪沒有有效檢查，job 以非零結果結束：
 
 - target 沒有 `package.json`（`SKIP (no supported project adapter)`）。
 - 有 `package.json`，但沒有受支援的 lockfile（`SKIP (no supported lockfile)`）。
 - 使用尚未 review 的 Bun adapter（`SKIP (Bun adapter requires separate review)`）。
 - 有 `package.json` 與 lockfile，但 `check:ci` 與 `lint`／`typecheck`／`test`／`build` 全都不存在，只完成 install。
 
-這種情況由 `scripts/common/run-ci.sh` 以非零結果 fail closed，**不得當成通過**。為了避免被漏看，runner 會：
+PR 模式針對 dispatch 指定的完整 SHA 下載 archive，並只向同一 SHA 寫入 commit status；不以當下分支 head 取代。預設分支模式不算 PR 證據。公開摘要標明 alias、模式、Hub run ID 和 attempt，不輸出私有 SHA；commit status 的連結指向對應 attempt。Artifact 依 workflow run 歸檔，名稱包含 attempt，避免重新執行時混用或覆蓋舊證據。
 
-- 在 job summary 結尾寫一行 `UNVERIFIED：沒有任何 adapter／檢查 stage 執行；…`；
-- 在 log 結尾輸出同一行（以 `::warning` annotation 呈現）。
+| 整輪結果 | 意義 | PR commit status |
+| --- | --- | --- |
+| `PASSED` | adapter 完成且有非備料、非 advisory 的檢查通過 | `success` |
+| `FAILED` | 已執行的必要檢查回報失敗 | `failure` |
+| `UNVERIFIED` | 無有效檢查或缺少已知 adapter 必要入口 | `error` |
+| `INFRASTRUCTURE_ERROR` | checkout、備料、工具無法執行、取消或證據缺失／不一致 | `error` |
+| `SKIP` | 重複請求未取得 claim，或單一 stage 未執行 | 重複請求不改寫狀態 |
 
-PR 模式會依 CI job 與 runner 結果寫入 `failure`；只有 CI 完成且成功才寫 `success`。判讀依據是 Public run 的 job summary，以及 status description 裡的 PASS／FAIL／SKIP 計數。
+一般 adapter 只驗證實際存在的 scripts；不能以單一 stage PASS 代替目標未宣告的必要檢查。若取消或 API 異常使 report 無法完成，pending 不是通過；請重新執行原始 run 的全部 jobs。
 
-判斷標準：summary 裡至少要有一個不屬於備料的 stage 顯示 `PASS`。備料 stage 包含 `package-json`、`package-lock`、`package-manager`、`install`、`local-git-baseline`、`shellcheck-tool`、`python-deps`；它們的 `PASS` 只代表前置條件成立。已知 target 的專屬 adapter（例如 `repo-03`）缺必要檔案時會 fail closed 成紅燈，不在此列。
+### 回滾
+
+若出現不正確的 status、重複檢查或摘要外洩，停止觸發受影響 workflow，依 `SECURITY.md` 處理外洩。由維護者在獨立 PR revert #34 的橋接變更，先重跑離線測試及安全稽核再合併；不需修改 alias、憑證或權限。回滾不會刪除既有 status；舊 attempt 的 pending 不得當作通過。
 
 ## Hub 自身的六倉 regression
 
@@ -262,7 +269,7 @@ Public summary 只包含：
 - PASS / FAIL / SKIP
 - 失敗 stage 的 exit code
 
-`private-ci.yml` 另會上傳 `hub-stage-evidence-<alias>` artifact，內容只有 `stage-evidence.json`：schema version、public-safe alias、stage 名稱與 `PASS`／`FAIL`／`ADVISORY`／`SKIP` 狀態。失敗原因、private source、命令輸出、環境資料與 repository mapping 都不會寫入此檔；artifact 保留 30 天。禁止上傳 private source artifact；這是唯一允許的去敏 stage evidence artifact。
+`private-ci.yml` 另會上傳 `hub-stage-evidence-<alias>-attempt-<run_attempt>` artifact，內容只有 `stage-evidence.json`：schema version、public-safe alias、stage 名稱與 `PASS`／`FAIL`／`ADVISORY`／`SKIP` 狀態。失敗原因、private source、命令輸出、環境資料與 repository mapping 都不會寫入此檔；artifact 保留 30 天。禁止上傳 private source artifact；這是唯一允許的去敏 stage evidence artifact。
 
 ## GitHub Actions command-file 隔離
 

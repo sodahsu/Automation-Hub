@@ -28,6 +28,13 @@
 
 唯一允許的 Artifact 是去敏 stage evidence：`private-ci.yml` 必須恰有一個 upload step，`with.path` 固定為 `${{ runner.temp }}/stage-evidence/stage-evidence.json`，`with.name` 以 `hub-stage-evidence-` 開頭，`retention-days` 為 30 或更短。不得上傳 workspace 路徑或萬用字元；`scripts/security/audit.py` 以 YAML 結構檢查此界線，其他 workflow 一律禁止 Artifact upload。
 
+## #34 安全檢查紀錄
+
+- 權限、alias、dispatch 目的地與 runner 類型維持不變；PR status claim／回寫留在不執行目標程式碼的 job。
+- 摘要用 Hub 固定欄位、stage 白名單及列舉值重建，不發布目標產生的 Markdown；artifact 在上傳前驗證與重寫。
+- 指令檔隔離用於防止正常 adapter 意外寫入，不是同 runner 上任意程式碼的沙盒。仍須信任既有目標程式與 PR head；本變更未新增可執行目標。
+- 唯讀查詢 GitHub 儲存庫 runner 清單：`total_count=0`。靜態稽核與合成測試不是獨立 review，也不涵蓋 GitHub 線上取消／回寫行為；後兩者仍待合併前確認。
+
 ## 事件處理
 
 如果私有內容或憑證遭到公開：

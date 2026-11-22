@@ -66,7 +66,7 @@ Detector 與 CI job **MUST** 沿用 selected-repository read-only credential 讀
 - **WHEN** PR 模式需要回寫驗證結果
 - **THEN** 寫入 **MUST** 使用只具 Commit statuses 權限的獨立 credential
 - **AND** 該 credential **MUST NOT** 出現在執行 private repository 程式碼的 job 中
-- **AND** status description **MUST** 只包含經過清理的 PASS／FAIL／SKIP 摘要
+- **AND** status description **MUST** 只包含固定結果列舉與經過清理的 PASS／FAIL／SKIP 計數
 
 ### Requirement: Public Hub dispatch permission MUST 與 private credential 分離
 
@@ -88,9 +88,9 @@ Detector **MUST NOT** 將 private commit SHA、真實 repository mapping 或 pri
 - **THEN** 暫存 metadata file **MUST** 留在 ephemeral runner
 - **AND** Public summary **MUST** 只包含 alias 與 `RUN` / `SKIP` / `WAIT` decision
 
-### Requirement: Detector MUST 對 Ready PR head 各 dispatch 一次驗證
+### Requirement: Detector MUST 對 Ready PR head 去重，bridge MUST 防止重複驗證
 
-Detector **MUST** 對 repo-01～repo-05 的 open、非 Draft PR，在 head SHA 尚無 `automation-hub/private-ci` status 時 dispatch 一次 PR 模式 CI。
+Detector **MUST** 對 repo-01～repo-05 的 open、非 Draft PR，在每次掃描依 alias／完整 head SHA 去重，且僅在該 SHA 尚無 `automation-hub/private-ci` status 時 dispatch PR 模式 CI。
 
 #### Scenario: 新的 Ready PR
 
@@ -107,6 +107,12 @@ Detector **MUST** 對 repo-01～repo-05 的 open、非 Draft PR，在 head SHA �
 - **WHEN** head SHA 已有任何狀態的 `automation-hub/private-ci` status
 - **THEN** detector **MUST NOT** 重複 dispatch
 
+#### Scenario: 重送與原始 run 重跑
+
+- **WHEN** 同一 alias／SHA 的請求在 pending 可見前被重送
+- **THEN** bridge **MUST** 序列化同一 alias／SHA 的 workflow，且已有 claim 時，新 run 不執行目標或改寫狀態
+- **AND** 只允許原始 run 的較新 attempt 重新取得 claim；同一 attempt 不得重複執行或完成同一 claim
+
 #### Scenario: Summary 不洩漏 PR 資訊
 
 - **WHEN** detector 寫入 step summary
@@ -115,7 +121,7 @@ Detector **MUST** 對 repo-01～repo-05 的 open、非 Draft PR，在 head SHA �
 
 ### Requirement: PR 模式 MUST 把結果回寫為 commit status
 
-PR 模式 CI **MUST** 在開始時對 head SHA 寫入 `pending`，並在結束時寫入 `success`、`failure` 或 `error`，context 為 `automation-hub/private-ci`，`target_url` 指向 Public run。
+PR 模式 CI **MUST** 在開始時對指定的完整 head SHA 寫入 `pending`，且僅由該 claim 的擁有者在結束時向同一 SHA 寫入 `success`、`failure` 或 `error`。context 為 `automation-hub/private-ci`，`target_url` 指向 Public run attempt；公開摘要與 artifact 不得包含私有 SHA。
 
 #### Scenario: CI 通過
 
@@ -124,10 +130,11 @@ PR 模式 CI **MUST** 在開始時對 head SHA 寫入 `pending`，並在結束�
 
 #### Scenario: CI 失敗或未完成
 
-- **WHEN** CI job 失敗
+- **WHEN** 必要檢查回報失敗
 - **THEN** status **MUST** 為 `failure`
-- **WHEN** CI job 被取消或無法取得原始碼
-- **THEN** status **MUST** 為 `error`，不得停留在 `pending`
+- **WHEN** 缺少有效檢查／必要入口，或發生基礎設施錯誤
+- **THEN** report 能執行且仍持有 claim 時 **MUST** 寫入 `error`，並以 `UNVERIFIED` 或 `INFRASTRUCTURE_ERROR` 區分
+- **AND** report 遭取消或無法回寫時，未完成的 `pending` 不得視為通過
 
 #### Scenario: repo-06 不支援 PR 模式
 
@@ -185,7 +192,7 @@ Private CI **MUST** serialize the existing stage rows into a versioned JSON evid
 - **THEN** the CI script **MUST** write UTF-8 JSON from the same rows used by the Markdown summary
 - **AND** the JSON **MUST** contain only `schemaVersion`, `target`, and `stages` at the top level
 - **AND** each stage **MUST** contain only its name and enumerated status
-- **AND** the workflow **MUST** upload one `stage-evidence.json` file as `hub-stage-evidence-<alias>` with `if: always()`, `if-no-files-found: warn`, and 30-day retention
+- **AND** after validating the evidence, the workflow **MUST** attempt to upload one `stage-evidence.json` file as `hub-stage-evidence-<alias>-attempt-<run_attempt>` with `if-no-files-found: warn` and 30-day retention
 - **AND** an upload failure **MUST NOT** change the CI job conclusion
 - **AND** the security audit **MUST** allow this sole sanitized artifact only in `private-ci.yml` and reject other workflows, additional artifact steps, or path changes
 
