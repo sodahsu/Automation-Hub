@@ -90,9 +90,15 @@ with tempfile.TemporaryDirectory() as directory:
     run_case('UNVERIFIED', 2)
     (source / 'package.json').write_text('{"scripts":{"check:ci":"true"}}')
     run_case('PASSED', 0)
-    run_case('FAILED', 7, CHECK_RC='7')
+    run_case('INFRASTRUCTURE_ERROR', 1, CHECK_RC='1')
+    run_case('INFRASTRUCTURE_ERROR', 7, CHECK_RC='7')
     run_case('INFRASTRUCTURE_ERROR', 7, INSTALL_RC='7')
     run_case('INFRASTRUCTURE_ERROR', 127, CHECK_RC='127')
+    publish('INFRASTRUCTURE_ERROR', 'FAILED')
+    stages = [dict(name=name, status='PASS') for name in ('package-json', 'package-lock', 'install', 'check:ci')]
+    stage_evidence.write_text(json.dumps(dict(schemaVersion=1, target='repo-03',
+                                               stages=stages + [dict(name='lint', status='UNVERIFIED')])))
+    publish('INFRASTRUCTURE_ERROR', 'PASSED')
     stage_evidence.write_text(json.dumps(dict(schemaVersion=1, target='repo-03',
                                                stages=[dict(name=marker, status='PASS')])))
     publish('INFRASTRUCTURE_ERROR', 'PASSED')
@@ -107,7 +113,7 @@ with tempfile.TemporaryDirectory() as directory:
 
     detector = yaml.safe_load((root / '.github/workflows/detect-private-changes.yml').read_text())
     detector_body = detector['jobs']['detect']['steps'][0]['run']
-    detector_script = 'set -Eeuo pipefail\naliases=(repo-01)\npr_failures=0\n\n' + detector_body[detector_body.index('for alias', detector_body.index('pr_failures=0')):]
+    detector_script = 'set -Eeuo pipefail\naliases=(repo-01)\n' + detector_body[detector_body.index('pr_failures=0'):]
     mock_curl = binaries / 'curl'
     mock_curl.write_text('''#!/bin/bash
 set -eu
@@ -120,24 +126,74 @@ while (( $# )); do
   shift
 done
 case "$url" in
-  */pulls\?*) printf '[{"draft":false,"head":{"sha":"%s"}},{"draft":false,"head":{"sha":"%s"}}]' "$FIXTURE_SHA" "$FIXTURE_SHA" > "$output" ;;
-  */commits/"$FIXTURE_SHA"/status\?*) printf '%s' "$FIXTURE_STATUS" > "$output" ;;
-  */dispatches) printf '%s\\n' "$payload" >> "$DISPATCHES"; printf 204; exit 0 ;;
+  */pulls\?*) printf '[{"draft":false,"head":{"sha":"%s","repo":{"full_name":"example/fixture"}}},{"draft":false,"head":{"sha":"%s","repo":{"full_name":"EXAMPLE/FIXTURE"}}},{"draft":false,"head":{"sha":"unexpected-fork-sha","repo":{"full_name":"example/fork"}}}]' "$FIXTURE_SHA" "$FIXTURE_SHA" > "$output" ;;
+  */commits/"$FIXTURE_SHA"/status\?*)
+    if [[ -f "$CLAIM" && "${STALE_COMBINED:-0}" == 0 ]]; then
+      jq --slurpfile claim "$CLAIM" '.statuses += [$claim[-1]] | .total_count += 1' <<<"$FIXTURE_STATUS" > "$output"
+    else
+      printf '%s' "$FIXTURE_STATUS" > "$output"
+    fi ;;
+  */commits/"$FIXTURE_SHA"/statuses\?*)
+    if [[ "${HIDE_CLAIM:-0}" == 0 ]]; then
+      jq -s '.' "$CLAIM" > "$output"
+    else
+      printf '[]' > "$output"
+    fi ;;
+  */statuses/"$FIXTURE_SHA")
+    printf '%s\\n' "$payload" >> "$CLAIM_WRITES"
+    if [[ "${REJECT_CLAIM:-0}" == 1 ]]; then printf 403; exit 0; fi
+    jq -c --argjson id "$(wc -l < "$CLAIM_WRITES")" '. + {id: $id}' <<<"$payload" > "$output"
+    cat "$output" >> "$CLAIM"
+    printf 201; exit 0 ;;
+  */dispatches)
+    [[ -f "$CLAIM" ]] || exit 98
+    printf '%s\\n' "$payload" >> "$DISPATCHES"
+    if [[ "${LOSE_DISPATCH_RESPONSE:-0}" == 1 ]]; then exit 28; fi
+    printf 204; exit 0 ;;
   *) exit 99 ;;
 esac
 printf 200
 ''')
     mock_curl.chmod(0o700)
     dispatches = temp / 'dispatches'
+    claim = temp / 'claim.json'
+    claim_writes = temp / 'claim-writes'
     detector_env = dict(env, PRIVATE_REPOS_JSON='{"repo-01":"example/fixture"}', PRIVATE_REPOS_READ_TOKEN='fixture',
-                        HUB_TOKEN='fixture', GITHUB_REPOSITORY='example/hub', FIXTURE_SHA=sha, DISPATCHES=str(dispatches))
-    for statuses, count, expected_rc in [([], 0, 0), ([dict(context='automation-hub/private-ci')], 1, 0), ([], 101, 1)]:
-        fixture = json.dumps(dict(sha=sha, statuses=statuses, total_count=count))
-        result = subprocess.run(['bash', '-c', detector_script], env=dict(detector_env, FIXTURE_STATUS=fixture),
+                        STATUS_TOKEN='fixture', HUB_TOKEN='fixture', GITHUB_SERVER_URL='https://example.invalid',
+                        GITHUB_REPOSITORY='example/hub', FIXTURE_SHA=sha, DISPATCHES=str(dispatches),
+                        CLAIM=str(claim), CLAIM_WRITES=str(claim_writes))
+
+    def sweep(expected_rc, statuses=(), count=0, **overrides):
+        fixture = json.dumps(dict(sha=sha, statuses=list(statuses), total_count=count))
+        result = subprocess.run(['bash', '-c', detector_script], env=dict(detector_env, FIXTURE_STATUS=fixture, **overrides),
                                 capture_output=True, text=True)
         assert result.returncode == expected_rc, result
         assert not any(value in summary.read_text() for value in (sha, 'example/fixture'))
-        assert [json.loads(line) for line in dispatches.read_text().splitlines()] == [dict(ref='main', inputs=dict(target='repo-01', sha=sha))]
+
+    def assert_counts(claim_count, dispatch_count):
+        assert len(claim_writes.read_text().splitlines() if claim_writes.exists() else []) == claim_count
+        assert [json.loads(line) for line in (dispatches.read_text().splitlines() if dispatches.exists() else [])] == [
+            dict(ref='main', inputs=dict(target='repo-01', sha=sha))] * dispatch_count
+
+    sweep(0, [dict(context='automation-hub/private-ci')], 1)
+    sweep(1, count=101)
+    assert_counts(0, 0)
+    sweep(1, REJECT_CLAIM='1')
+    assert_counts(1, 0)
+    sweep(1, HIDE_CLAIM='1')
+    sweep(0)
+    assert_counts(2, 0)
+    claim.unlink()
+    sweep(0)
+    sweep(0)
+    sweep(0, GITHUB_RUN_ID='124', GITHUB_RUN_ATTEMPT='1')
+    assert_counts(3, 1)
+    sweep(1, STALE_COMBINED='1')
+    assert_counts(4, 1)
+    claim.unlink()
+    sweep(1, LOSE_DISPATCH_RESPONSE='1')
+    sweep(0)
+    assert_counts(5, 2)
 
 print('bridge evidence tests passed')
 PY

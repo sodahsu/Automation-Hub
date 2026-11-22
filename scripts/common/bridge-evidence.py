@@ -14,7 +14,7 @@ stale-fact-audit hub-drift index-drift relation-health memory-health source-link
 claim-harvest source-backlog portable-ci-entrypoint check:ci lint typecheck test build
 """.split())
 SETUP = set("package-json package-lock package-manager install local-git-baseline python-deps".split())
-STATUSES = {"PASS", "FAIL", "ADVISORY", "SKIP"}
+STATUSES = {"PASS", "FAIL", "ADVISORY", "SKIP", "UNVERIFIED"}
 
 
 def status_gate(path, sha, url, phase):
@@ -72,13 +72,14 @@ def publish(path):
         stages = read_stages(path, alias)
         path.write_text(json.dumps({"schemaVersion": 1, "target": alias, "stages": stages}) + "\n")
         failed = [stage["name"] for stage in stages if stage["status"] == "FAIL"]
+        unverified = any(stage["status"] == "UNVERIFIED" for stage in stages)
         passed = {stage["name"] for stage in stages if stage["status"] == "PASS"}
         verified = bool(passed - SETUP - {"stale-fact-audit"})
         required = {"repo-03": {"package-json", "package-lock", "install", "check:ci"},
                     "repo-04": {"install", "portable-ci-entrypoint"}}.get(alias, set())
-        if outcome == "PASSED" and verified and required <= passed and not failed:
+        if outcome == "PASSED" and verified and required <= passed and not failed and not unverified:
             result = "PASSED"
-        elif outcome == "FAILED" and failed and not SETUP.intersection(failed):
+        elif outcome == "FAILED" and failed and not SETUP.intersection(failed) and not unverified:
             result = "FAILED"
         elif outcome == "UNVERIFIED" and not verified:
             result = "UNVERIFIED"

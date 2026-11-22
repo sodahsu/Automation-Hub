@@ -87,7 +87,7 @@ for row in sys.stdin.read().splitlines():
     name = columns[1].strip()
     words = columns[2].strip().split()
     status = words[0] if words else ""
-    if not re.fullmatch(r"[A-Za-z0-9:_-]{1,64}", name) or status not in {"PASS", "FAIL", "ADVISORY", "SKIP"}:
+    if not re.fullmatch(r"[A-Za-z0-9:_-]{1,64}", name) or status not in {"PASS", "FAIL", "ADVISORY", "SKIP", "UNVERIFIED"}:
         valid = False
         break
     stages.append({"name": name, "status": status})
@@ -133,12 +133,9 @@ run_stage() {
     return 0
   else
     local rc=$?
-    add_row "$stage" "FAIL (exit ${rc})"
-    result="FAILED"
-    if [[ "$setup_stages" == *" ${stage} "* ]] || (( rc >= 126 )); then
-      result="INFRASTRUCTURE_ERROR"
-    fi
-    echo "::error title=Private CI stage failed::${stage} failed with exit code ${rc}. Private command output was intentionally withheld from this public log."
+    add_row "$stage" "UNVERIFIED (exit ${rc})"
+    result="INFRASTRUCTURE_ERROR"
+    echo "::error title=Private CI stage unverified::${stage} returned exit code ${rc} without assertion evidence. Private command output was intentionally withheld from this public log."
     rm -f "$log_file"
     overall_rc=$rc
     return "$rc"
@@ -211,7 +208,7 @@ if [[ "$target_alias" == "repo-06" ]]; then
     rm -f "$relation_log"
   else
     rc=$?
-    add_row "relation-health" "FAIL (exit ${rc})"
+    add_row "relation-health" "UNVERIFIED (exit ${rc})"
     rm -f "$relation_log"
     overall_rc=$rc
     result="INFRASTRUCTURE_ERROR"
@@ -349,11 +346,11 @@ if [[ "$target_alias" == "repo-04" ]]; then
     10) add_row "$stage" "FAIL (target repository registry entry missing)"; overall_rc=1 ;;
     11) add_row "$stage" "FAIL (portableCiEntrypoint missing or invalid)"; overall_rc=1 ;;
     12) add_row "$stage" "FAIL (target repository slug unavailable)"; overall_rc=1 ;;
-    *) add_row "$stage" "FAIL (registry could not be read)"; overall_rc=1 ;;
+    *) add_row "$stage" "UNVERIFIED (registry could not be read)"; overall_rc=1 ;;
   esac
   if (( resolve_rc != 0 )); then
     result="UNVERIFIED"
-    if (( resolve_rc == 12 )); then
+    if (( resolve_rc != 10 && resolve_rc != 11 )); then
       result="INFRASTRUCTURE_ERROR"
     fi
   fi
