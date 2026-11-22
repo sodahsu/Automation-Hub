@@ -16,7 +16,7 @@
 | Vue / Vite lint、test、build | 第一順位 | 不推薦 | Mac 不在線時的既有 CI 備援 |
 | 交互式公開 Embedding 實驗 | 可當 CPU baseline | 合適，手動啟動 | 不推薦 GPU 實驗 |
 | 合成 Markdown 批次索引 | 可跑 Python | 合適，CPU / GPU 比較 | 只適合有明確腳本的短期 CI |
-| 私有 ObsidianBook 原文索引 | 可在授權的本機隔離執行 | **首期禁止輸入** | 僅依既有安全合約處理 |
+| 私有 private knowledge vault 原文索引 | 可在授權的本機隔離執行 | **首期禁止輸入** | 僅依既有安全合約處理 |
 | 24/7 排程、隨時接單、CI fallback | Self-hosted Runner 受開機狀態限制 | **不適合** | 使用現有 Hub，遵守 GitHub 限額及平台政策 |
 
 ## Baseline（全部尚待實測）
