@@ -4,7 +4,7 @@
 
 定義 Automation-Hub 可手動在 Google Colab 執行的公開合成 Markdown 索引實驗，以及不觸碰私有 CI 的資料／證據安全邊界。
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Colab PoC SHALL remain interactive and isolated
 
