@@ -16,6 +16,7 @@
 
 | Change | 狀態 | 下一步 |
 |---|---|---|
+| `colab-synthetic-index-poc` | ACTIVE / WAITING-HUMAN | #36～#41：公開合成 Markdown Notebook、report schema、離線測試已在獨立 PR；待 OpenSpec PR check、獨立安全 review 與使用者 Colab CPU/GPU/CU live 驗收；PR 不合併前不得視為 production。 |
 | `trigger-openspec-validation-on-pr` | ARCHIVED | 2026-10-04 完成 opened / synchronize / ready_for_review runtime 驗證，canonical `ci-pr-validation` 已建立並歸檔。 |
 | `claude-0700-minimal-wake` | WAITING-HUMAN | 2026-10-23 修訂：GitHub `schedule` 實測落在台北 08:28–11:15（晚 1.5–4.3 小時），改為 cron-job.org 在 07:00 以 `workflow_dispatch` 為主、`schedule` 為備援，並加冪等防呆（`scripts/wake/wake-guard.sh`，本機 stub 測試通過）。尚待：PR 合併 → 使用者建立 cron-job.org 07:00 job → 連續 3 天 07:00 ± 5 分驗收；另有 OAuth 帳號身分（5.1）與 usage window 觀察（8.1、8.2）。**不 archive**：`openspec/project.md` 要求 runtime observation 未完成必須留 active，且沒有使用者針對本 change 的延後批准。清單見該 change `tasks.md` 檔尾「使用者驗收清單」。 |
 | `claude-window-trigger` | ARCHIVED（dropped） | 2026-10-23 撤銷：從未啟用（一律 dry-run、`CLAUDE_CODE_OAUTH_TOKEN` 不存在），用途與 `claude-0700-minimal-wake` 重疊；workflow 與文件已刪除，以 `--skip-specs` 歸檔。 |
