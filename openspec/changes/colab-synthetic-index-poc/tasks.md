@@ -21,7 +21,7 @@ source: ai-assisted
 
 - [x] 1.1 閱讀 Hub README、SECURITY、openspec/project 與現有規格。
 - [x] 1.2 完成 proposal、design、spec delta 與測試條件。
-- [ ] 1.3 OpenSpec strict validation 經 GitHub PR check 通過。
+- [x] 1.3 OpenSpec strict validation 經 GitHub PR check 通過（PR #42 run #98，2026-11-22）。
 - [ ] 1.4 安全 reviewer 獨立審查 no-private-data 與 notebook output。
 
 ## Phase 2 — Notebook 與報告
