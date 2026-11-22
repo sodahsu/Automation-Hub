@@ -13,7 +13,7 @@
 
 ## 安全禁令
 
-- **禁止** Google Drive 掛載、私有 repo clone、token / PAT、真實 ObsidianBook 筆記、真實 Embedding 或向量索引載入此 Notebook。
+- **禁止** Google Drive 掛載、私有 repo clone、token / PAT、真實 private knowledge vault 筆記、真實 Embedding 或向量索引載入此 Notebook。
 - **禁止**改造成 24/7 GitHub Runner、定期觸發器、反向代理、Web 服務或平台限制規避。
 - 本 PoC 的 `PASS` 只代表合成資料 Notebook 成功，不代表 Automation-Hub 的 repo-01～06 CI 通過。
 - Notebook 不保存 cell output。報告 `compute_units_observed = null`；實際 CU 只記在**人工審核的非公開驗收紀錄**。不會將帳戶資訊輸出公開 artifact。
