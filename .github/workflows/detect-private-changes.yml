@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: private-change-detector
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   detect:
@@ -35,6 +35,7 @@ jobs:
         env:
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
           PRIVATE_REPOS_READ_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
+          STATUS_TOKEN: ${{ secrets.PRIVATE_REPOS_STATUS_TOKEN }}
           HUB_TOKEN: ${{ github.token }}
           FORCE_DETECT: ${{ inputs.force }}
         run: |
@@ -217,11 +218,16 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
           pr_failures=0
+          claim_context=automation-hub/private-ci-dispatch
 
           for alias in "${aliases[@]}"; do
             [[ "${alias}" == "repo-06" ]] && continue
 
-            private_repo="$(jq -er --arg alias "${alias}" '.[$alias]' <<<"${PRIVATE_REPOS_JSON}")"
+            if ! private_repo="$(jq -er --arg alias "${alias}" '.[$alias] | strings | select(test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"))' <<<"${PRIVATE_REPOS_JSON}")"; then
+              echo "::error title=Invalid target mapping::${alias} has no valid repository mapping."
+              ((pr_failures += 1))
+              continue
+            fi
             echo "::add-mask::${private_repo}"
 
             pulls_file="${RUNNER_TEMP}/pulls-${alias}.json"
@@ -235,7 +241,7 @@ jobs:
               continue
             fi
 
-            head_shas="$(jq -r '.[] | select(.draft == false) | .head.sha' "${pulls_file}")"
+            head_shas="$(jq -r --arg repo "${private_repo}" '[.[] | select(.draft == false and ((.head.repo.full_name // "") | ascii_downcase) == ($repo | ascii_downcase)) | .head.sha] | unique[]' "${pulls_file}")"
             rm -f "${pulls_file}"
 
             pr_run=0
@@ -252,7 +258,7 @@ jobs:
               fi
 
               status_file="${RUNNER_TEMP}/commit-status-${alias}.json"
-              status_code="$(curl --silent --location                 --output "${status_file}"                 --write-out "%{http_code}"                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${private_repo}/commits/${head_sha}/status")"
+              status_code="$(curl --silent --location                 --output "${status_file}"                 --write-out "%{http_code}"                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${private_repo}/commits/${head_sha}/status?per_page=100")"
 
               if [[ "${status_code}" != "200" ]]; then
                 rm -f "${status_file}"
@@ -261,7 +267,17 @@ jobs:
                 continue
               fi
 
-              has_status="$(jq -r '[.statuses[]? | select(.context == "automation-hub/private-ci")] | length' "${status_file}")"
+              if ! has_status="$(jq -er --arg sha "${head_sha}" --arg claim "${claim_context}" '
+                if .sha != $sha or (.statuses | type) != "array" then error("Invalid status response")
+                else ([.statuses[] | select(.context == "automation-hub/private-ci" or .context == $claim)] | length) as $count
+                  | if $count > 0 or .total_count == (.statuses | length) then $count
+                    else error("Incomplete status response") end
+                end' "${status_file}" 2>/dev/null)"; then
+                rm -f "${status_file}"
+                echo "::error title=Private PR check failed::${alias} returned incomplete or invalid status evidence."
+                alias_failed=1
+                continue
+              fi
               rm -f "${status_file}"
 
               if [[ "${has_status}" != "0" ]]; then
@@ -269,10 +285,37 @@ jobs:
                 continue
               fi
 
+              claim_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}"
+              claim_payload="$(jq -cn --arg context "${claim_context}" --arg url "${claim_url}" '{state:"pending",context:$context,description:"Dispatch reserved; not a CI result",target_url:$url}')"
+              claim_file="${RUNNER_TEMP}/dispatch-claim-${alias}.json"
+              if [[ -z "${STATUS_TOKEN:-}" ]] || ! claim_code="$(curl --silent                 --output "${claim_file}"                 --write-out "%{http_code}"                 --request POST                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${STATUS_TOKEN}"                 --header "Content-Type: application/json"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${private_repo}/statuses/${head_sha}"                 --data "${claim_payload}")" || [[ "${claim_code}" != 201 ]] || ! claim_id="$(jq -er --arg context "${claim_context}" --arg url "${claim_url}" 'select(.context == $context and .target_url == $url and .state == "pending") | .id | select(type == "number")' "${claim_file}" 2>/dev/null)"; then
+                rm -f "${claim_file}"
+                echo "::error title=PR dispatch claim failed::Unable to reserve ${alias} PR verification."
+                alias_failed=1
+                continue
+              fi
+              rm -f "${claim_file}"
+
+              if ! status_code="$(curl --silent \
+                --output "${status_file}" --write-out "%{http_code}" \
+                --header "Accept: application/vnd.github+json" \
+                --header "Authorization: Bearer ${PRIVATE_REPOS_READ_TOKEN}" \
+                --header "X-GitHub-Api-Version: 2026-03-10" \
+                "https://api.github.com/repos/${private_repo}/commits/${head_sha}/statuses?per_page=100")" || [[ "${status_code}" != 200 ]] || ! jq -e --arg context "${claim_context}" --argjson id "${claim_id}" '
+                type == "array" and length < 100 and
+                  ([.[] | select(.context == $context or .context == "automation-hub/private-ci") | .id] == [$id])
+              ' "${status_file}" >/dev/null 2>&1; then
+                rm -f "${status_file}"
+                echo "::error title=PR dispatch claim unavailable::Exclusive reservation not verified for ${alias}; dispatch withheld."
+                alias_failed=1
+                continue
+              fi
+              rm -f "${status_file}"
+
               payload="$(jq -cn --arg ref "main" --arg target "${alias}" --arg sha "${head_sha}" '{ref:$ref,inputs:{target:$target,sha:$sha}}')"
               dispatch_file="${RUNNER_TEMP}/dispatch-pr-${alias}.txt"
 
-              dispatch_code="$(curl --silent --location                 --output "${dispatch_file}"                 --write-out "%{http_code}"                 --request POST                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${HUB_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/private-ci.yml/dispatches"                 --data "${payload}")"
+              dispatch_code="$(curl --silent                 --output "${dispatch_file}"                 --write-out "%{http_code}"                 --request POST                 --header "Accept: application/vnd.github+json"                 --header "Authorization: Bearer ${HUB_TOKEN}"                 --header "X-GitHub-Api-Version: 2026-03-10"                 "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/private-ci.yml/dispatches"                 --data "${payload}")" || dispatch_code=000
 
               rm -f "${dispatch_file}"
 
@@ -290,6 +333,6 @@ jobs:
           done
 
           if (( pr_failures > 0 )); then
-            echo "::error title=PR verification incomplete::${pr_failures} alias(es) had PR lookup or dispatch failures."
+            echo "::error title=PR verification incomplete::${pr_failures} alias(es) had PR lookup, claim, or dispatch failures."
             exit 1
           fi

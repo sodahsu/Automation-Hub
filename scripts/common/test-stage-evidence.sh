@@ -47,9 +47,9 @@ evidence="$tmp/fail/stage-evidence.json"
 rc=0
 PATH="$tmp/bin:$PATH" CHECK_CI_RC=7 bash "$runner" "$tmp/repo-03" "$summary" repo-03 "$evidence" >/dev/null 2>&1 || rc=$?
 [[ "$rc" == 7 ]] || { echo "FAIL exit code changed: $rc" >&2; exit 1; }
-assert_json "$evidence" repo-03 FAIL
+assert_json "$evidence" repo-03 UNVERIFIED
 ! grep -q 'exit 7' "$evidence" || { echo "failure reason leaked into JSON" >&2; exit 1; }
-grep -q 'FAIL (exit 7)' "$summary"
+grep -q 'UNVERIFIED (exit 7)' "$summary"
 
 mkdir -p "$tmp/repo-06" "$tmp/python-bin"
 cat > "$tmp/python-bin/python3" <<'SH'

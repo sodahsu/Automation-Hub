@@ -29,6 +29,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ inputs.sha != '' && format('private-ci-pr-{0}-{1}', inputs.target, inputs.sha) || format('private-ci-run-{0}', github.run_id) }}
+  cancel-in-progress: false
+
 jobs:
   # 在任何網路請求之前先驗證輸入；驗證失敗整條 workflow 直接停。
   # status token 只存在於 resolve 與 report；執行 private 程式碼的 ci job 拿不到。
@@ -38,14 +42,26 @@ jobs:
     timeout-minutes: 5
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
+      claimed_attempt: ${{ steps.claim.outputs.claimed_attempt }}
     steps:
+      - name: Checkout trusted Hub mapping validator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Validate inputs and select mode
         id: mode
         env:
           INPUT_SHA: ${{ inputs.sha }}
           INPUT_TARGET: ${{ inputs.target }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -Eeuo pipefail
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" && ! "${INPUT_TARGET}" =~ ^repo-0[1-6]$ ]]; then
+            echo "::error title=Invalid input::Unsupported target alias."
+            exit 1
+          fi
 
           if [[ -z "${INPUT_SHA}" ]]; then
             echo "mode=default" >> "${GITHUB_OUTPUT}"
@@ -65,13 +81,15 @@ jobs:
           echo "mode=pr" >> "${GITHUB_OUTPUT}"
 
       - name: Write pending commit status
+        id: claim
         if: steps.mode.outputs.mode == 'pr'
         env:
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          READ_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
           STATUS_TOKEN: ${{ secrets.PRIVATE_REPOS_STATUS_TOKEN }}
           TARGET_ALIAS: ${{ inputs.target }}
           HEAD_SHA: ${{ inputs.sha }}
-          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           set -Eeuo pipefail
           umask 077
@@ -81,14 +99,25 @@ jobs:
             exit 1
           fi
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
-
-          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          private_repo="$(TARGET_ALIAS="${TARGET_ALIAS}" PRIVATE_REPOS_JSON="${PRIVATE_REPOS_JSON}" python3 scripts/common/resolve-target.py)" || {
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
-          fi
+          }
 
           echo "::add-mask::${private_repo}"
+
+          lookup_file="$(mktemp "${RUNNER_TEMP}/status-lookup.XXXXXX")"
+          trap 'rm -f "${lookup_file}" "${out_file:-}"' EXIT
+          curl --silent --fail --location --output "${lookup_file}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${READ_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${private_repo}/commits/${HEAD_SHA}/status?per_page=100"
+          may_claim="$(python3 scripts/common/bridge-evidence.py claim "${lookup_file}" "${HEAD_SHA}" "${TARGET_URL}")"
+          if [[ "${may_claim}" != "true" ]]; then
+            echo 'SKIP — this exact PR head already has a bridge claim, or this attempt cannot claim it.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
 
           payload="$(jq -cn --arg url "${TARGET_URL}" \
             '{state:"pending",context:"automation-hub/private-ci",description:"Public CI is running",target_url:$url}')"
@@ -109,11 +138,12 @@ jobs:
             echo "::error title=Status write failed::Unable to write pending status (HTTP ${http_code})."
             exit 1
           fi
+          echo "claimed_attempt=${GITHUB_RUN_ATTEMPT}" >> "${GITHUB_OUTPUT}"
 
   ci:
     name: CI — ${{ matrix.target }}${{ needs.resolve.outputs.mode == 'pr' && ' · PR' || '' }}
     needs: resolve
-    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.resolve.outputs.mode == 'default' || needs.resolve.outputs.claimed_attempt == format('{0}', github.run_attempt)) }}
     outputs:
       ci_outcome: ${{ steps.publish.outputs.ci_outcome }}
       pass_count: ${{ steps.publish.outputs.pass_count }}
@@ -169,12 +199,10 @@ jobs:
           set -Eeuo pipefail
           umask 077
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
-
-          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          private_repo="$(TARGET_ALIAS="${TARGET_ALIAS}" PRIVATE_REPOS_JSON="${PRIVATE_REPOS_JSON}" python3 scripts/common/resolve-target.py)" || {
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
-          fi
+          }
 
           echo "::add-mask::${private_repo}"
 
@@ -282,57 +310,39 @@ jobs:
           : > "${GITHUB_ENV}"
           : > "${GITHUB_PATH}"
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
+          private_repo="$(python3 scripts/common/resolve-target.py)"
           echo "::add-mask::${private_repo}"
           # 只把目標 slug 交給 run-ci.sh；整份 alias 對照表不留在執行 private code 的環境。
-          PRIVATE_REPOSITORY="${private_repo}" env -u PRIVATE_REPOS_JSON bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${TARGET_ALIAS}" "${RUNNER_TEMP}/stage-evidence/stage-evidence.json"
+          PRIVATE_REPOSITORY="${private_repo}" env -u PRIVATE_REPOS_JSON bash scripts/common/run-ci.sh workspace "${RUNNER_TEMP}/ci-summary.md" "${TARGET_ALIAS}" "${RUNNER_TEMP}/stage-evidence/stage-evidence.json" "${RUNNER_TEMP}/ci-result.txt"
 
       - name: Publish sanitized summary
         id: publish
         if: ${{ always() }}
         env:
           PRIVATE_CI_OUTCOME: ${{ steps.private_ci.outcome }}
+          TARGET_ALIAS: ${{ matrix.target }}
+          RUN_MODE: ${{ needs.resolve.outputs.mode }}
         run: |
           set -Eeuo pipefail
 
-          # 只輸出列舉值與數字給 report job，不帶任何 private 內容。
-          pass_count=0
-          fail_count=0
-          skip_count=0
-          summary_file="${RUNNER_TEMP}/ci-summary.md"
-          if [[ ! -s "${summary_file}" ]]; then
-            echo "::error title=Missing CI summary::Private CI completed without a sanitized stage summary."
+          if [[ ! -f scripts/common/bridge-evidence.py ]]; then
+            echo 'INFRASTRUCTURE_ERROR — Hub checkout unavailable.' >> "${GITHUB_STEP_SUMMARY}"
             exit 1
           fi
-          pass_count="$(awk -F'|' '$3 ~ /^[[:space:]]*PASS([[:space:]]|$)/ { count++ } END { print count + 0 }' "${summary_file}")"
-          fail_count="$(awk -F'|' '$3 ~ /^[[:space:]]*FAIL([[:space:]]|$)/ { count++ } END { print count + 0 }' "${summary_file}")"
-          skip_count="$(awk -F'|' '$3 ~ /^[[:space:]]*SKIP([[:space:]]|$)/ { count++ } END { print count + 0 }' "${summary_file}")"
-          {
-            echo "ci_outcome=${PRIVATE_CI_OUTCOME}"
-            echo "pass_count=${pass_count}"
-            echo "fail_count=${fail_count}"
-            echo "skip_count=${skip_count}"
-          } >> "${GITHUB_OUTPUT}"
-
-          {
-            echo "## Target"
-            echo
-            echo "${{ matrix.target }}"
-            echo
-          } >> "${GITHUB_STEP_SUMMARY}"
-
-          if [[ -f "${RUNNER_TEMP}/ci-summary.md" ]]; then
-            cat "${RUNNER_TEMP}/ci-summary.md" >> "${GITHUB_STEP_SUMMARY}"
-          else
-            echo "CI summary was not produced." >> "${GITHUB_STEP_SUMMARY}"
+          export RUNNER_OUTCOME="INFRASTRUCTURE_ERROR"
+          if [[ -f "${RUNNER_TEMP}/ci-result.txt" ]] && IFS= read -r candidate < "${RUNNER_TEMP}/ci-result.txt"; then
+            case "${PRIVATE_CI_OUTCOME}:${candidate}" in
+              success:PASSED|failure:FAILED|failure:UNVERIFIED) RUNNER_OUTCOME="${candidate}" ;;
+            esac
           fi
+          python3 scripts/common/bridge-evidence.py publish "${RUNNER_TEMP}/stage-evidence/stage-evidence.json"
 
       - name: Upload sanitized stage evidence
-        if: ${{ always() }}
+        if: ${{ always() && steps.publish.outcome == 'success' }}
         continue-on-error: true
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: hub-stage-evidence-${{ matrix.target }}
+          name: hub-stage-evidence-${{ matrix.target }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/stage-evidence/stage-evidence.json
           if-no-files-found: warn
           retention-days: 30
@@ -343,28 +353,36 @@ jobs:
           set -Eeuo pipefail
           rm -rf workspace
           rm -rf "${RUNNER_TEMP}/private-ci-command-files"
+          rm -rf "${RUNNER_TEMP}/stage-evidence"
+          rm -f "${RUNNER_TEMP}/ci-result.txt"
           rm -f "${RUNNER_TEMP}"/automation-hub-*.log "${RUNNER_TEMP}/ci-summary.md" "${RUNNER_TEMP}/automation-hub-git-askpass.sh" 2>/dev/null || true
 
       - name: Fail workflow when private CI failed
-        if: ${{ steps.private_ci.outcome == 'failure' }}
+        if: ${{ always() && steps.publish.outputs.ci_outcome != 'PASSED' }}
         run: |
-          echo "::error title=Private CI failed::One or more repository-native CI stages failed."
+          echo "::error title=Private CI did not pass::See the sanitized summary for the result."
           exit 1
 
   report:
     name: Report PR status
     needs: [resolve, ci]
-    if: ${{ always() && needs.resolve.outputs.mode == 'pr' }}
+    if: ${{ always() && needs.resolve.outputs.claimed_attempt == format('{0}', github.run_attempt) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Checkout Automation Hub
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
       - name: Write final commit status
         env:
           PRIVATE_REPOS_JSON: ${{ secrets.PRIVATE_REPOS_JSON }}
+          READ_TOKEN: ${{ secrets.PRIVATE_REPOS_READ_TOKEN }}
           STATUS_TOKEN: ${{ secrets.PRIVATE_REPOS_STATUS_TOKEN }}
           TARGET_ALIAS: ${{ inputs.target }}
           HEAD_SHA: ${{ inputs.sha }}
-          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
           CI_RESULT: ${{ needs.ci.result }}
           CI_OUTCOME: ${{ needs.ci.outputs.ci_outcome }}
           PASS_COUNT: ${{ needs.ci.outputs.pass_count }}
@@ -379,30 +397,41 @@ jobs:
             exit 1
           fi
 
-          # private_ci step 是 continue-on-error，成敗看 step outcome 而非 job result。
-          # ci job 取消、取得原始碼失敗或沒有 output 時一律 error，不留在 pending。
           state="error"
-          description="Public CI did not complete"
-          if [[ "${CI_OUTCOME}" == "failure" ]]; then
+          description="Public CI INFRASTRUCTURE_ERROR"
+          if [[ "${CI_OUTCOME}" == "FAILED" && "${CI_RESULT}" == "failure" ]]; then
             state="failure"
-            description="Public CI failed"
-          elif [[ "${CI_OUTCOME}" == "success" && "${CI_RESULT}" == "success" ]]; then
+            description="Public CI FAILED"
+          elif [[ "${CI_OUTCOME}" == "UNVERIFIED" && "${CI_RESULT}" == "failure" ]]; then
+            description="Public CI UNVERIFIED"
+          elif [[ "${CI_OUTCOME}" == "PASSED" && "${CI_RESULT}" == "success" ]]; then
             state="success"
-            description="Public CI passed"
+            description="Public CI PASSED"
           fi
 
-          if [[ "${PASS_COUNT}" =~ ^[0-9]{1,4}$ && "${FAIL_COUNT}" =~ ^[0-9]{1,4}$ && "${SKIP_COUNT}" =~ ^[0-9]{1,4}$ && "${state}" != "error" ]]; then
+          if [[ "${PASS_COUNT}" =~ ^[0-9]{1,4}$ && "${FAIL_COUNT}" =~ ^[0-9]{1,4}$ && "${SKIP_COUNT}" =~ ^[0-9]{1,4}$ && "${CI_OUTCOME}" != "INFRASTRUCTURE_ERROR" ]]; then
             description="${description}: PASS ${PASS_COUNT} / FAIL ${FAIL_COUNT} / SKIP ${SKIP_COUNT}"
           fi
 
-          private_repo="$(jq -er --arg alias "${TARGET_ALIAS}" '.[$alias] | select(type == "string" and length > 0)' <<<"${PRIVATE_REPOS_JSON}")"
-
-          if [[ ! "${private_repo}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          private_repo="$(TARGET_ALIAS="${TARGET_ALIAS}" PRIVATE_REPOS_JSON="${PRIVATE_REPOS_JSON}" python3 scripts/common/resolve-target.py)" || {
             echo "::error title=Invalid target mapping::The selected alias does not resolve to a valid repository identifier."
             exit 1
-          fi
+          }
 
           echo "::add-mask::${private_repo}"
+
+          lookup_file="$(mktemp "${RUNNER_TEMP}/status-lookup.XXXXXX")"
+          trap 'rm -f "${lookup_file}" "${out_file:-}"' EXIT
+          curl --silent --fail --location --output "${lookup_file}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${READ_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${private_repo}/commits/${HEAD_SHA}/status?per_page=100"
+          owns_claim="$(python3 scripts/common/bridge-evidence.py report "${lookup_file}" "${HEAD_SHA}" "${TARGET_URL}")"
+          if [[ "${owns_claim}" != "true" ]]; then
+            echo "SKIP — this attempt does not own a pending status." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
 
           payload="$(jq -cn --arg state "${state}" --arg desc "${description:0:140}" --arg url "${TARGET_URL}" \
             '{state:$state,context:"automation-hub/private-ci",description:$desc,target_url:$url}')"
