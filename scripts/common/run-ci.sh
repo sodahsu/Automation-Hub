@@ -20,6 +20,25 @@ overall_rc=0
 stage_results=""
 result="PASSED"
 
+PYTHON_BIN="${PYTHON_BIN:-}"
+resolve_python() {
+  if [[ -n "$PYTHON_BIN" ]]; then
+    if "$PYTHON_BIN" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+      return 0
+    fi
+  fi
+  local cand
+  for cand in python3.13 python3.12 python3.11 python3; do
+    if command -v "$cand" >/dev/null 2>&1; then
+      if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+        PYTHON_BIN="$(command -v "$cand")"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
 # 這些 stage 只負責備料或偵測環境：PASS 只代表前置條件成立，
 # 不代表目標程式碼的任何檢查被執行過。
 setup_stages=" package-json package-lock package-manager install local-git-baseline shellcheck-tool python-deps "
@@ -173,9 +192,16 @@ cd "$workspace"
 # repo-05 has no package.json but its private CI is a Python + OpenSpec contract suite.
 # Mirror candidate-contract.yml exactly enough for read-only recovery.
 if [[ "$target_alias" == "repo-05" ]]; then
-  run_stage "unit-tests" python3 -m unittest discover -s tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
-  run_stage "candidate-contract" python3 scripts/check-candidates.py || { write_summary; exit "$overall_rc"; }
-  run_stage "architecture-json" python3 -m json.tool architecture/contract.json || { write_summary; exit "$overall_rc"; }
+  if ! resolve_python; then
+    add_row "python-runtime" "FAIL (Python >= 3.10 required)"
+    overall_rc=2
+    result="UNVERIFIED"
+    write_summary
+    exit "$overall_rc"
+  fi
+  run_stage "unit-tests" "$PYTHON_BIN" -m unittest discover -s tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
+  run_stage "candidate-contract" "$PYTHON_BIN" scripts/check-candidates.py || { write_summary; exit "$overall_rc"; }
+  run_stage "architecture-json" "$PYTHON_BIN" -m json.tool architecture/contract.json || { write_summary; exit "$overall_rc"; }
   run_stage "architecture-doc" test -s docs/CANDIDATE-CONTRACT.md || { write_summary; exit "$overall_rc"; }
   run_stage "openspec-strict" npx --yes @fission-ai/openspec@1.8.0 validate --all --strict || { write_summary; exit "$overall_rc"; }
   write_summary
@@ -184,18 +210,30 @@ fi
 # repo-06 mirrors the read-only/manual path of its Vault Health workflow.
 # Report bodies stay inside suppressed temporary logs and are never published.
 if [[ "$target_alias" == "repo-06" ]]; then
-  run_stage "python-deps" python3 -m pip install --disable-pip-version-check PyYAML==6.0.3 || { write_summary; exit "$overall_rc"; }
-  run_stage "skill-sync" python3 90_System/scripts/check-skill-sync.py || { write_summary; exit "$overall_rc"; }
-  run_stage "health-unit-tests" python3 -m unittest discover -s 90_System/tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
-  run_stage "metadata-normalizer" python3 90_System/scripts/metadata-normalizer.py check --format json || { write_summary; exit "$overall_rc"; }
-  run_stage "vault-health" python3 90_System/scripts/vault-health.py || { write_summary; exit "$overall_rc"; }
-  run_stage "followup-radar" python3 90_System/scripts/followup_radar.py --limit 30 || { write_summary; exit "$overall_rc"; }
-  run_advisory "stale-fact-audit" python3 90_System/scripts/stale-fact-audit.py
-  run_stage "hub-drift" python3 90_System/scripts/generate_hub.py --check || { write_summary; exit "$overall_rc"; }
-  run_stage "index-drift" python3 90_System/scripts/index-drift-check.py || { write_summary; exit "$overall_rc"; }
+  if ! resolve_python; then
+    add_row "python-runtime" "FAIL (Python >= 3.10 required)"
+    overall_rc=2
+    result="UNVERIFIED"
+    write_summary
+    exit "$overall_rc"
+  fi
+  if ! "$PYTHON_BIN" -c "import yaml" >/dev/null 2>&1; then
+    run_stage "python-deps" "$PYTHON_BIN" -m pip install --disable-pip-version-check --break-system-packages PyYAML==6.0.3 || \
+    run_stage "python-deps" "$PYTHON_BIN" -m pip install --disable-pip-version-check PyYAML==6.0.3 || { write_summary; exit "$overall_rc"; }
+  else
+    add_row "python-deps" "PASS (cached)"
+  fi
+  run_stage "skill-sync" "$PYTHON_BIN" 90_System/scripts/check-skill-sync.py || { write_summary; exit "$overall_rc"; }
+  run_stage "health-unit-tests" "$PYTHON_BIN" -m unittest discover -s 90_System/tests -p "test_*.py" -v || { write_summary; exit "$overall_rc"; }
+  run_stage "metadata-normalizer" "$PYTHON_BIN" 90_System/scripts/metadata-normalizer.py check --format json || { write_summary; exit "$overall_rc"; }
+  run_stage "vault-health" "$PYTHON_BIN" 90_System/scripts/vault-health.py || { write_summary; exit "$overall_rc"; }
+  run_stage "followup-radar" "$PYTHON_BIN" 90_System/scripts/followup_radar.py --limit 30 || { write_summary; exit "$overall_rc"; }
+  run_advisory "stale-fact-audit" "$PYTHON_BIN" 90_System/scripts/stale-fact-audit.py
+  run_stage "hub-drift" "$PYTHON_BIN" 90_System/scripts/generate_hub.py --check || { write_summary; exit "$overall_rc"; }
+  run_stage "index-drift" "$PYTHON_BIN" 90_System/scripts/index-drift-check.py || { write_summary; exit "$overall_rc"; }
 
   relation_log="${RUNNER_TEMP:-/tmp}/automation-hub-relation-health.log"
-  if python3 90_System/scripts/relation-health.py >"$relation_log" 2>&1; then
+  if "$PYTHON_BIN" 90_System/scripts/relation-health.py >"$relation_log" 2>&1; then
     if grep -qE "(非法關係類型|右側沒有 wikilink|目標不存在|自我指向)：[1-9]" "$relation_log"; then
       add_row "relation-health" "FAIL (contract)"
       rm -f "$relation_log"
@@ -216,8 +254,8 @@ if [[ "$target_alias" == "repo-06" ]]; then
     exit "$overall_rc"
   fi
 
-  run_stage "memory-health" python3 90_System/scripts/memory-health.py --strict || { write_summary; exit "$overall_rc"; }
-  run_stage "source-link-format" python3 90_System/scripts/fix-source-links.py || { write_summary; exit "$overall_rc"; }
+  run_stage "memory-health" "$PYTHON_BIN" 90_System/scripts/memory-health.py --strict || { write_summary; exit "$overall_rc"; }
+  run_stage "source-link-format" "$PYTHON_BIN" 90_System/scripts/fix-source-links.py || { write_summary; exit "$overall_rc"; }
   add_row "claim-harvest" "SKIP (schedule-only)"
   add_row "source-backlog" "SKIP (schedule-only)"
   write_summary
