@@ -2,7 +2,7 @@
 
 ## Dependency installation
 
-Node-family aliases require exactly one supported lockfile. Missing or conflicting lockfiles produce a failed `package-lock` stage; installation uses `npm ci`, `pnpm install --frozen-lockfile`, Yarn immutable/frozen mode, or `bun install --frozen-lockfile`. Package manager lockfile mismatch errors remain failures and are never retried with an unlocked command.
+Node-family aliases require exactly one supported lockfile. Missing or conflicting lockfiles produce a failed `package-lock` stage; installation uses `npm ci`, `pnpm install --frozen-lockfile`, or Yarn immutable/frozen mode. Bun lockfiles are recognized for ambiguity detection, but the Bun adapter remains a `SKIP` pending separate review and does not install dependencies or run scripts. Package manager lockfile mismatch errors remain failures and are never retried with an unlocked command.
 
 The `repo-06` adapter's only installed Python package is PyYAML. A Hub-owned requirements lock pins its version and accepted PyPI SHA-256 digests, and pip runs with `--require-hashes`. `repo-05` does not install project dependencies; its OpenSpec CLI invocation remains pinned to the existing exact version.
 

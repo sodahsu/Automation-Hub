@@ -351,8 +351,9 @@ case "$pm" in
     runner=(corepack yarn run)
     ;;
   bun)
-    run_stage "install" bun install --frozen-lockfile || { write_summary; exit "$overall_rc"; }
-    runner=(bun run)
+    add_row "adapter" "SKIP (Bun adapter requires separate review)"
+    write_summary
+    exit "$overall_rc"
     ;;
 esac
 

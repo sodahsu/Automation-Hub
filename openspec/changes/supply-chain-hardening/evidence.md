@@ -17,5 +17,7 @@ Local verification results:
 | `python3 -m pip download --no-deps --require-hashes -r scripts/common/requirements.lock --dest /tmp/hub-lock-verify --platform manylinux2014_x86_64 --python-version 3.12 --implementation cp --abi cp312 --only-binary=:all:` | 0 | Hash-verified Linux Python 3.12 artifact resolution passed. |
 | `git diff --check && bash -n scripts/common/run-ci.sh` | 0 | Passed |
 | `actionlint .github/workflows/private-ci.yml` | 127 | Not run: `actionlint` is not installed in this environment. |
+| Bun fixture check | 1 | Existing Bun `SKIP` was reported, and the stub installer was not called; exit 1 is the existing unverified-adapter result. |
+| Missing-lockfile fixture check | 2 | Failed with `package-lock` status as required. |
 
 No hosted workflow or dispatch was triggered.

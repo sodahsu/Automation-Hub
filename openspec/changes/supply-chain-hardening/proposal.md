@@ -6,7 +6,7 @@ Dependency setup in the public CI bridge should fail closed when a project canno
 
 ## What Changes
 
-- Require exactly one supported lockfile for Node-family adapters and use each package manager's frozen installation mode, including Bun.
+- Require exactly one supported lockfile for Node-family adapters that install dependencies and use each supported package manager's frozen installation mode.
 - Lock the bridge's PyYAML dependency by version and package hashes.
 - Keep lifecycle scripts enabled for every applicable alias because the available evidence does not establish that disabling them preserves each existing required stage.
 - Document public output handling and containment guidance in `SECURITY.md`.
