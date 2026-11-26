@@ -36,6 +36,8 @@
 - Detector 串行執行，在派工前為目標的 exact SHA 寫入獨立的 reservation status，並查同 SHA 的狀態歷史確認沒有其他 reservation 或 CI status。它記錄 detector run attempt，不代表 CI 通過；歷史不完整或派工回應不明時保留 reservation，不重送。維護者應先查 Hub run，再決定是否需要手動處理。
 - 摘要用 Hub 固定欄位、stage 白名單及列舉值重建，不發布目標產生的 Markdown；artifact 在上傳前驗證與重寫。
 - 指令檔隔離用於防止正常 adapter 意外寫入，不是同 runner 上任意程式碼的沙盒。仍須信任既有目標程式與 PR head；本變更未新增可執行目標。
+- 同一個 GitHub-hosted runner 不構成程式碼沙盒；在 runner 上執行的依賴安裝與檢查可能互相存取檔案及程序。Actions log、job summary 與 artifact 一律視為公開，所有依賴與其輸出均須按公開資訊處理。
+- 若發現可疑依賴、鎖定檔異常，或任何未預期的公開 log、summary、artifact 內容，立即停用受影響 workflow，停止後續觸發，並依下方事件處理程序移除公開資料及檢查影響；完成調查與修正前不得重新啟用。
 - 唯讀查詢 GitHub 儲存庫 runner 清單：`total_count=0`。靜態稽核與合成測試不是獨立 review，也不涵蓋 GitHub 線上取消／回寫行為；後兩者仍待合併前確認。
 
 ## 事件處理
@@ -47,3 +49,5 @@
 3. 在 GitHub 允許的範圍內，移除公開 Artifact、log 或其他公開引用。
 4. 檢查相關私有儲存庫是否出現未授權的寫入或變更。
 5. 在重新啟用受影響功能之前，建立新的 OpenSpec change，記錄原因、修正方式與重新啟用條件。
+
+若事件涉及可疑依賴或非預期公開輸出，也依相同程序停用 workflow、移除可移除的公開資料，並先完成調查與修正，再建立重新啟用條件。
