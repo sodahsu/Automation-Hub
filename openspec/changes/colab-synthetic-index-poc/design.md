@@ -10,7 +10,7 @@
 
 ## 決策 3：公開模型與 CPU 優先
 
-使用 Hugging Face 公開 Apache-2.0 模型 `sentence-transformers/all-MiniLM-L6-v2`，查詢當次解析到的模型 commit SHA，再以 revision 固定該次執行；Python 套件指定固定版本。預設 CPU；只有使用者主動改 `USE_GPU=True` 且可用時才使用 GPU。模型不可下載時停止並顯示固定、無敏感資料的錯誤字串；不偽裝成功。
+使用 Hugging Face 公開 Apache-2.0 模型 `sentence-transformers/all-MiniLM-L6-v2`，revision 固定為已查核的 40 碼 commit SHA `1110a243fdf4706b3f48f1d95db1a4f5529b4d41`；執行期不解析模型分支，載入失敗即停止。直接與傳遞 Python 依賴由 `experiments/colab/requirements.lock` 精確固定版本；Notebook 下載鎖定檔後核對 SHA-256，再依檔安裝。預設 CPU；只有使用者主動改 `USE_GPU=True` 且可用時才使用 GPU。模型不可下載時停止並顯示固定、無敏感資料的錯誤字串；不偽裝成功。
 
 ## 決策 4：去敏 report 是白名單而非過濾原始 log
 

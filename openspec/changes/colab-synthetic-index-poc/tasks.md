@@ -22,7 +22,7 @@ source: ai-assisted
 - [x] 1.1 閱讀 Hub README、SECURITY、openspec/project 與現有規格。
 - [x] 1.2 完成 proposal、design、spec delta 與測試條件。
 - [x] 1.3 OpenSpec strict validation 經 GitHub PR check 通過（PR #42 run #98，2026-11-22）。
-- [ ] 1.4 安全 reviewer 獨立審查 no-private-data 與 notebook output。
+- [x] 1.4 安全 reviewer 獨立審查 no-private-data 與 notebook output；依賴 pinning 修正與驗證紀錄見 `evidence/dependency-pinning-2026-11-27.md`。
 
 ## Phase 2 — Notebook 與報告
 
@@ -48,3 +48,12 @@ npx --yes @fission-ai/openspec@1.8.0 validate --all --strict --json
 ~~~
 
 若環境無法安裝 npm / Colab 套件，不得將未實際執行的命令標記完成；以 PR check 與本人 Colab live smoke 補證據。
+
+## 2026-11-27 本機驗證紀錄
+
+- [x] 固定 Hugging Face revision 為 `1110a243fdf4706b3f48f1d95db1a4f5529b4d41`，執行期不使用 `model_info` 動態解析。
+- [x] 完整依賴版本鎖 `experiments/colab/requirements.lock`，Notebook 安裝前核對鎖檔 SHA-256。
+- [x] 離線測試：exit 0（11 tests；10 passed、1 skipped，因環境未安裝 NumPy）。
+- [x] `scripts/security/audit.py`：exit 0。
+- [x] OpenSpec strict validate：exit 0（4/4 items passed）。
+- [ ] 未執行 Colab live run；CU 與 CPU/GPU 實測仍待人工驗收。詳見 `evidence/dependency-pinning-2026-11-27.md`。

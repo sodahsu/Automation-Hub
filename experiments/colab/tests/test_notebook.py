@@ -3,6 +3,7 @@ import contextlib
 import copy
 import io
 import json
+import hashlib
 import math
 from pathlib import Path
 import sys
@@ -76,7 +77,7 @@ class PublicReportTests(unittest.TestCase):
     def setUp(self):
         self.env = core()
         self.report = self.env["build_public_report"](
-            count=120, dimension=384, revision="a" * 40,
+            count=120, dimension=384, revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
             runtime="CPU", gpu_requested=False, elapsed_seconds=2.5,
         )
 
@@ -113,7 +114,7 @@ class PublicReportTests(unittest.TestCase):
 
     def test_gpu_fallback_is_truthful(self):
         report = self.env["build_public_report"](
-            count=120, dimension=384, revision="a" * 40,
+            count=120, dimension=384, revision="1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
             runtime="CPU", gpu_requested=True, elapsed_seconds=1,
         )
         self.assertTrue(report["gpu_fallback"])
@@ -133,6 +134,11 @@ class NotebookStructureTests(unittest.TestCase):
         self.assertIn('USE_GPU = False', code_cell(4))
         self.assertIn('SAVE_PUBLIC_REPORT = False', code_cell(8))
         self.assertIn('token=False', code_cell(4))
+        self.assertIn("requirements.lock", code_cell(1))
+        self.assertIn("PINNED_MODEL_REVISION", code_cell(4))
+        self.assertNotIn("model_info", code_cell(4))
+        lock_digest = hashlib.sha256((BASE / "requirements.lock").read_bytes()).hexdigest()
+        self.assertIn(lock_digest, code_cell(1))
         for idx in (2, 3, 4, 5, 6, 8):
             compile(code_cell(idx), f"notebook-cell-{idx}", "exec")
 
@@ -155,13 +161,12 @@ class NotebookStructureTests(unittest.TestCase):
 
         fake_torch = types.ModuleType("torch")
         fake_torch.cuda = types.SimpleNamespace(is_available=lambda: False)
-        fake_hf = types.ModuleType("huggingface_hub")
-        fake_hf.model_info = lambda model_id, token: types.SimpleNamespace(sha="a" * 40)
         fake_st = types.ModuleType("sentence_transformers")
 
         class FakeModel:
             def __init__(self, *args, **kwargs):
-                if args[0] != "sentence-transformers/all-MiniLM-L6-v2" or kwargs["token"] is not False:
+                if (args[0] != "sentence-transformers/all-MiniLM-L6-v2" or kwargs["token"] is not False
+                        or kwargs["revision"] != "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"):
                     raise AssertionError("Unexpected public model args")
             def encode(self, strings, **kwargs):
                 arr = []
@@ -172,9 +177,9 @@ class NotebookStructureTests(unittest.TestCase):
                 return np.asarray(arr)
 
         fake_st.SentenceTransformer = FakeModel
-        originals = {k: sys.modules.get(k) for k in ("torch", "huggingface_hub", "sentence_transformers")}
+        originals = {k: sys.modules.get(k) for k in ("torch", "sentence_transformers")}
         try:
-            sys.modules.update({"torch": fake_torch, "huggingface_hub": fake_hf, "sentence_transformers": fake_st})
+            sys.modules.update({"torch": fake_torch, "sentence_transformers": fake_st})
             env = {}
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 for i in (2, 3, 4, 5, 6, 8):
