@@ -19,6 +19,7 @@ declare -a rows=()
 overall_rc=0
 stage_results=""
 result="PASSED"
+hub_root="$(cd "$(dirname "$0")/../.." && pwd)"
 
 PYTHON_BIN="${PYTHON_BIN:-}"
 resolve_python() {
@@ -218,8 +219,7 @@ if [[ "$target_alias" == "repo-06" ]]; then
     exit "$overall_rc"
   fi
   if ! "$PYTHON_BIN" -c "import yaml" >/dev/null 2>&1; then
-    run_stage "python-deps" "$PYTHON_BIN" -m pip install --disable-pip-version-check --break-system-packages PyYAML==6.0.3 || \
-    run_stage "python-deps" "$PYTHON_BIN" -m pip install --disable-pip-version-check PyYAML==6.0.3 || { write_summary; exit "$overall_rc"; }
+    run_stage "python-deps" "$PYTHON_BIN" -m pip install --disable-pip-version-check --break-system-packages --require-hashes -r "$hub_root/scripts/common/requirements.lock" || { write_summary; exit "$overall_rc"; }
   else
     add_row "python-deps" "PASS (cached)"
   fi
@@ -313,14 +313,20 @@ run_stage "package-json" node -e 'JSON.parse(require("fs").readFileSync("package
 pm=""
 if [[ -f pnpm-lock.yaml ]]; then
   pm="pnpm"
-elif [[ -f package-lock.json ]]; then
-  pm="npm"
-elif [[ -f yarn.lock ]]; then
-  pm="yarn"
-elif [[ -f bun.lock || -f bun.lockb ]]; then
-  pm="bun"
-else
-  add_row "package-manager" "SKIP (no supported lockfile)"
+fi
+if [[ -f package-lock.json ]]; then
+  [[ -z "$pm" ]] && pm="npm" || pm="ambiguous"
+fi
+if [[ -f yarn.lock ]]; then
+  [[ -z "$pm" ]] && pm="yarn" || pm="ambiguous"
+fi
+if [[ -f bun.lock || -f bun.lockb ]]; then
+  [[ -z "$pm" ]] && pm="bun" || pm="ambiguous"
+fi
+if [[ -z "$pm" || "$pm" == "ambiguous" ]]; then
+  add_row "package-lock" "FAIL (missing or ambiguous lockfile)"
+  overall_rc=2
+  result="UNVERIFIED"
   write_summary
   exit "$overall_rc"
 fi
