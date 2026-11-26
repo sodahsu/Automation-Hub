@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:automation-hub:colab-synthetic-poc:report:v1",
+  "title": "Colab Synthetic PoC Public Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "experiment", "dataset_kind", "status", "document_count",
+    "chunk_count", "embedding_dimension", "model_id", "model_revision",
+    "runtime_mode", "gpu_requested", "gpu_fallback", "elapsed_seconds", "compute_units_observed"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "experiment": {"const": "colab-synthetic-poc"},
+    "dataset_kind": {"const": "synthetic"},
+    "status": {"enum": ["PASS", "FAIL", "UNVERIFIED", "INTERRUPTED"]},
+    "document_count": {"type": "integer", "minimum": 100, "maximum": 500},
+    "chunk_count": {"type": "integer", "minimum": 100, "maximum": 500},
+    "embedding_dimension": {"type": "integer", "minimum": 1, "maximum": 8192},
+    "model_id": {"const": "sentence-transformers/all-MiniLM-L6-v2"},
+    "model_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "runtime_mode": {"enum": ["CPU", "GPU"]},
+    "gpu_requested": {"type": "boolean"},
+    "gpu_fallback": {"type": "boolean"},
+    "elapsed_seconds": {"type": "number", "minimum": 0},
+    "compute_units_observed": {"type": "null"}
+  }
+}
