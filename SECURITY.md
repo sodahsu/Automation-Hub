@@ -32,6 +32,7 @@
 
 - Hub workflow 與 alias 對照由維護者管理；手動輸入、PR metadata、GitHub API 回應、目標程式及其輸出都不當作可信指令或通過證據。只用已知 alias、映射的儲存庫與驗證過的完整 SHA 存取目標，查不到或證據不完整就不派工。
 - Hub workflow token 在 detector 只有 Actions: Write（派工）及 Contents: Read，在 receiver 只有 Contents: Read。目標讀取憑證負責讀取程式碼、PR 與 commit status；既有狀態憑證只需目標 Commit statuses: Write，只進入 detector 與 receiver 的狀態步驟，不提供給執行目標程式的步驟。
+- 啟用 repo-06 PR status 回寫時，`PRIVATE_REPOS_STATUS_TOKEN` 的 repository access 需包含 repo-06，且只授予 Commit statuses: write；不得增加 Contents、Pull requests 或其他權限。未授權時，pending status 寫入被拒絕會使 workflow fail closed，不會執行 CI 或回報成功。
 - 自動掃描只接受 head repository 與映射目標相同的非草稿 PR；fork 或來源不可辨識時不派工。手動指定 SHA 不做 PR 來源比對，只能由受信任的操作者指定可執行的 SHA，不是 fork PR 的驗證入口。
 - Detector 串行執行，在派工前為目標的 exact SHA 寫入獨立的 reservation status，並查同 SHA 的狀態歷史確認沒有其他 reservation 或 CI status。它記錄 detector run attempt，不代表 CI 通過；歷史不完整或派工回應不明時保留 reservation，不重送。維護者應先查 Hub run，再決定是否需要手動處理。
 - 摘要用 Hub 固定欄位、stage 白名單及列舉值重建，不發布目標產生的 Markdown；artifact 在上傳前驗證與重寫。

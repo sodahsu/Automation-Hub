@@ -73,11 +73,6 @@ jobs:
             exit 1
           fi
 
-          if [[ "${INPUT_TARGET}" == "repo-06" ]]; then
-            echo "::error title=Unsupported target::repo-06 does not support PR mode."
-            exit 1
-          fi
-
           echo "mode=pr" >> "${GITHUB_OUTPUT}"
 
       - name: Write pending commit status
@@ -226,6 +221,19 @@ jobs:
             GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
               git clone --depth 1 --filter=blob:none --sparse --no-tags \
               "https://github.com/${private_repo}.git" workspace
+
+            if [[ "${RUN_MODE}" == "pr" ]]; then
+              fetch_log="${RUNNER_TEMP}/automation-hub-git-fetch.log"
+              if ! GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 \
+                git -C workspace fetch --depth=1 origin "${HEAD_SHA}" >"${fetch_log}" 2>&1 ||
+                ! git -C workspace checkout --detach FETCH_HEAD >>"${fetch_log}" 2>&1 ||
+                [[ "$(git -C workspace rev-parse HEAD)" != "${HEAD_SHA}" ]]; then
+                rm -f "${fetch_log}" "${askpass}"
+                echo "::error title=Private checkout failed::Unable to checkout the requested exact commit."
+                exit 1
+              fi
+              rm -f "${fetch_log}"
+            fi
 
             # Partial clone may lazily fetch blobs while materializing the sparse
             # checkout, so keep read-only auth only for this one fetch-capable step.

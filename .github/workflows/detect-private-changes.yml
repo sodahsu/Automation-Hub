@@ -206,7 +206,7 @@ jobs:
           echo >> "${GITHUB_STEP_SUMMARY}"
           echo "Dispatched targets: ${dispatched}" >> "${GITHUB_STEP_SUMMARY}"
 
-          # PR head 驗證：只涵蓋 repo-01～05（repo-06 是 main-only 知識庫）。
+          # PR head 驗證：六個 alias 共用 exact-SHA 去重、claim 與 dispatch 流程。
           # 單一 alias 的 PR 查詢失敗只記錄並繼續，最後才讓 step 失敗，
           # 避免上面已完成的 default branch dispatch 因此被整段蓋掉。
           {
@@ -221,8 +221,6 @@ jobs:
           claim_context=automation-hub/private-ci-dispatch
 
           for alias in "${aliases[@]}"; do
-            [[ "${alias}" == "repo-06" ]] && continue
-
             if ! private_repo="$(jq -er --arg alias "${alias}" '.[$alias] | strings | select(test("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"))' <<<"${PRIVATE_REPOS_JSON}")"; then
               echo "::error title=Invalid target mapping::${alias} has no valid repository mapping."
               ((pr_failures += 1))

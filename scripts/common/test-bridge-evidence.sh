@@ -195,5 +195,20 @@ printf 200
     sweep(0)
     assert_counts(5, 2)
 
+    # repo-06 participates in the same PR enumeration and exact-SHA claim path.
+    detector_script_06 = 'set -Eeuo pipefail\naliases=(repo-06)\n' + detector_body[detector_body.index('pr_failures=0'):]
+    dispatches_06 = temp / 'dispatches-06'
+    claim_06 = temp / 'claim-06.json'
+    claim_writes_06 = temp / 'claim-writes-06'
+    env_06 = dict(detector_env, PRIVATE_REPOS_JSON='{"repo-06":"example/fixture"}',
+                  DISPATCHES=str(dispatches_06), CLAIM=str(claim_06), CLAIM_WRITES=str(claim_writes_06))
+    result_06 = subprocess.run(['bash', '-c', detector_script_06],
+                               env=dict(env_06, FIXTURE_STATUS=json.dumps(dict(sha=sha, statuses=[], total_count=0))),
+                               capture_output=True, text=True)
+    assert result_06.returncode == 0, result_06
+    assert [json.loads(line) for line in dispatches_06.read_text().splitlines()] == [
+        dict(ref='main', inputs=dict(target='repo-06', sha=sha))]
+    assert not any(value in summary.read_text() for value in (sha, 'example/fixture'))
+
 print('bridge evidence tests passed')
 PY
