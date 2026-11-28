@@ -90,7 +90,7 @@ Detector **MUST NOT** 將 private commit SHA、真實 repository mapping 或 pri
 
 ### Requirement: Detector MUST 對 Ready PR head 去重，bridge MUST 防止重複驗證
 
-Detector **MUST** 對 repo-01～repo-05 的 open、非 Draft PR，在每次掃描依 alias／完整 head SHA 去重，且僅在該 SHA 尚無 `automation-hub/private-ci` status 時 dispatch PR 模式 CI。
+Detector **MUST** 對 repo-01～repo-06 的 open、非 Draft PR，在每次掃描依 alias／完整 head SHA 去重，且僅在該 SHA 尚無 `automation-hub/private-ci` status 時 dispatch PR 模式 CI。
 
 #### Scenario: 新的 Ready PR
 
@@ -136,10 +136,12 @@ PR 模式 CI **MUST** 在開始時對指定的完整 head SHA 寫入 `pending`�
 - **THEN** report 能執行且仍持有 claim 時 **MUST** 寫入 `error`，並以 `UNVERIFIED` 或 `INFRASTRUCTURE_ERROR` 區分
 - **AND** report 遭取消或無法回寫時，未完成的 `pending` 不得視為通過
 
-#### Scenario: repo-06 不支援 PR 模式
+#### Scenario: repo-06 PR head 使用 sparse exact-SHA checkout
 
-- **WHEN** `target` 為 `repo-06` 且帶有 `sha`
-- **THEN** workflow **MUST** 在任何網路請求前失敗
+- **WHEN** `target` 為 `repo-06` 且帶有格式正確的 `sha`
+- **THEN** workflow **MUST** 以與 default 模式相同的 sparse path 清單 checkout 該完整 SHA
+- **AND** workflow **MUST** 在執行 adapter 前確認 checkout 的 HEAD 與輸入 SHA 完全相同
+- **AND** 公開摘要與 artifact **MUST NOT** 包含該 SHA 或 private repository 資料
 
 ### Requirement: Private repository 變更偵測 MUST 每 5 分鐘執行
 

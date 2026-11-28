@@ -7,7 +7,7 @@ Automation-Hub 的用途，是在六個來源儲存庫維持 Private 的前提�
 目前支援四種執行方式：
 
 - **手動單倉執行**：從 Actions 選擇 `repo-01`～`repo-06`。
-- **PR head 驗證**：對 repo-01～05 的 Ready PR head 跑同一套 CI，並把結果回寫為 PR 上的 commit status（見「PR 模式」）。
+- **PR head 驗證**：對 repo-01～repo-06 的 Ready PR head 跑同一套 CI，並把結果回寫為 PR 上的 commit status（見「PR 模式」）。
 - **每 5 分鐘變更偵測**：只有偵測到 private repo 有新的 push activity 才執行對應 alias。
 - **Hub 自身回歸測試**：`private-ci.yml` 或共用 adapter 程式碼在 `main` 變更時，自動跑一次六倉 regression。
 
@@ -68,7 +68,7 @@ private repository           僅在 runtime 解析
             v
 只公開 PASS / FAIL / SKIP 摘要
 
-PR 模式（dispatch 帶 sha，僅 repo-01..05）：
+PR 模式（dispatch 帶 sha，repo-01..06）：
 
 resolve ──> ci ──> report
 （驗證輸入， （READ_TOKEN， （STATUS_TOKEN）
@@ -97,11 +97,11 @@ resolve ──> ci ──> report
 
 PR 模式回寫 commit status 專用的第二支 fine-grained personal access token，是 Automation-Hub 唯一的 private repo 寫入 credential。
 
-- Repository access：只選 repo-01～05 對應的 private repositories（不含 repo-06）
+- Repository access：repo-01～repo-05；要啟用 repo-06 PR 模式，維護者需將 repo-06 加入此清單
 - Commit statuses：Read and write
 - Metadata：Read
 
-不授予 Contents、Pull requests 或其他 write 權限，因此無法改 code、branch 或 PR。這支 token 只出現在 `resolve` 與 `report` 兩個 job，執行 private 程式碼的 `ci` job 拿不到它。
+repo-06 只需 Commit statuses: write。未加入 repo-06 時，PR 模式寫入 pending status 會被拒絕，workflow fail closed，不會執行 CI 或回報成功。不授予 Contents、Pull requests 或其他 write 權限，因此無法改 code、branch 或 PR。這支 token 只出現在 `resolve` 與 `report` 兩個 job，執行 private 程式碼的 `ci` job 拿不到它。
 
 ### `PRIVATE_REPOS_JSON`
 
@@ -138,8 +138,8 @@ PR 模式回寫 commit status 專用的第二支 fine-grained personal access to
 
 private repo 自己的 Actions 停擺時（例如帳號付款問題），PR 仍可取得合併前的 CI 證據。
 
-- 手動：在 **Run workflow** 選 `repo-01`～`repo-05`，並在 `sha` 填 PR head 的 40 碼 commit SHA。`sha` 只接受 `^[0-9a-f]{40}$`，且不支援 `repo-06`；格式錯誤會在任何網路請求前失敗。不接受分支名稱。
-- 自動：detector 每輪列出 repo-01～05 的 open、非 Draft PR，逐 alias 合併重複的 head SHA；已有 `automation-hub/private-ci` status 的不再 dispatch。若 GitHub 尚未顯示 pending，偵測器可能重送請求，但 bridge 將同 alias／SHA 的整個 workflow 序列化，只有取得 pending claim 的 attempt 能執行檢查並回寫。同一 SHA 要重跑，請對原始 run 選 **Re-run all jobs**，不要建立新 dispatch 或只重跑失敗 job。
+- 手動：在 **Run workflow** 選 `repo-01`～`repo-06`，並在 `sha` 填 PR head 的 40 碼 commit SHA。`sha` 只接受 `^[0-9a-f]{40}$`；格式錯誤會在任何網路請求前失敗。不接受分支名稱。repo-06 會沿用 default 模式的 sparse 清單，並確認 checkout HEAD 與輸入 SHA 完全一致。
+- 自動：detector 每輪列出 repo-01～06 的 open、非 Draft PR，逐 alias 合併重複的 head SHA；已有 `automation-hub/private-ci` status 的不再 dispatch。若 GitHub 尚未顯示 pending，偵測器可能重送請求，但 bridge 將同 alias／SHA 的整個 workflow 序列化，只有取得 pending claim 的 attempt 能執行檢查並回寫。同一 SHA 要重跑，請對原始 run 選 **Re-run all jobs**，不要建立新 dispatch 或只重跑失敗 job。
 - 結果：`automation-hub/private-ci` commit status 依序為 `pending` → `success`／`failure`／`error`，`target_url` 指向 Public run，description 只含清理過的 PASS／FAIL／SKIP 計數。
 - job 名稱為 `CI — <alias> · PR`，不會被 detector 當成 default branch 的結果；concurrency group 帶入 sha，不會卡住 main 的健康檢查。
 - Detector 的 step summary 只寫每個 alias 的 `PR RUN n / PR SKIP m` 計數，不寫 PR 編號、標題、分支或作者。
@@ -176,7 +176,7 @@ Detector 不會固定重跑六倉，而是：
 - 使用尚未 review 的 Bun adapter（`SKIP (Bun adapter requires separate review)`）。
 - 有 `package.json` 與 lockfile，但 `check:ci` 與 `lint`／`typecheck`／`test`／`build` 全都不存在，只完成 install。
 
-PR 模式針對 dispatch 指定的完整 SHA 下載 archive，並只向同一 SHA 寫入 commit status；不以當下分支 head 取代。預設分支模式不算 PR 證據。公開摘要標明 alias、模式、Hub run ID 和 attempt，不輸出私有 SHA；commit status 的連結指向對應 attempt。Artifact 依 workflow run 歸檔，名稱包含 attempt，避免重新執行時混用或覆蓋舊證據。
+PR 模式針對 dispatch 指定的完整 SHA 取得程式碼，repo-06 使用 sparse Git checkout，其餘 alias 使用 archive；所有 alias 只向同一 SHA 寫入 commit status，不以當下分支 head 取代。預設分支模式不算 PR 證據。公開摘要標明 alias、模式、Hub run ID 和 attempt，不輸出私有 SHA；commit status 的連結指向對應 attempt。Artifact 依 workflow run 歸檔，名稱包含 attempt，避免重新執行時混用或覆蓋舊證據。
 
 | 整輪結果 | 意義 | PR commit status |
 | --- | --- | --- |
